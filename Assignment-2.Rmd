@@ -1,0 +1,104 @@
+---
+title: "Assignment-2"
+author: "Daniel Lindsay-Shad"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: flatly
+    code_folding: hide
+    toc: true
+    toc_depth: 3
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r load-data}
+library(tidyverse)
+library(ggfortify)
+library(ggplot2)
+library(RColorBrewer)
+
+library(GEOquery)
+library(org.Hs.eg.db)
+library(limma)
+library(edgeR)
+library(Glimma)
+library(Homo.sapiens)
+library(SummarizedExperiment)
+library(gplots)
+
+
+# Read 
+raw_data <- read.delim("data/GSE256420_patients_raw_counts.txt", check.names = FALSE)
+
+
+counts_a <- as.matrix(raw_data[, -(1:3)])
+
+genes_a <- data.frame(
+  Gene_Name = raw_data$Gene_Name,
+  Biotype = raw_data$Biotype,
+  row.names = make.unique(raw_data$Gene_ID)
+)
+
+# Sample metadata — equivalent of colData(rse_gene)
+samples_a <- data.frame(
+  group = factor(ifelse(grepl("^F", colnames(counts_a)), "F", "NF")),
+  row.names = colnames(counts_a)
+)
+```
+
+
+## Data Exploration and Preprocessing
+```{r data-exploration}
+# Create DGEList object
+# dge <- DGEList(raw_data)
+dge <- DGEList(counts = counts_a, samples = samples_a, genes = genes_a)
+
+dge <- calcNormFactors(dge, method = "TMM")
+
+# show the nomalisation factors. For this dataset the effect of
+# TMM-normalisation is mild, as evident in the magnitude of the scaling
+# factors, which are all relatively close to 1.
+# TCGA$samples$norm.factors
+
+# Filter out lowly expressed genes that are unlikely to be informative
+# This improves statistical power and reduces computational burden
+keep <- filterByExpr(dge)
+dge <- dge[keep,]
+
+# Calculate counts per million (CPM) for each gene across all samples
+# This normalizes for library size differences
+cpm <- cpm(dge)
+
+# Calculate log-transformed CPM values
+# Log transformation stabilizes variance across expression levels
+lcpm <- cpm(dge, log=TRUE)
+
+# Perform Principal Component Analysis (PCA) on the log-CPM values
+# Transpose the data to get samples as rows and genes as columns
+pca <- prcomp(t(lcpm), scale = TRUE)
+
+# Visualize PCA results with samples colored by age at diagnosis
+autoplot(pca, data = samples_a, colour = "group")
+```
+
+```{r}
+
+design <- model.matrix(~ group, samples_a)
+
+v <- voom(dge, design, plot=TRUE)
+
+fit <- lmFit(v, design)
+
+efit <- eBayes(fit)
+# colnames(fit$coefficients)
+
+volcanoplot(efit, coef = "groupNF", highlight = 10, names = efit$genes$Gene_Name)
+```
+
+```{r}
+
+```
