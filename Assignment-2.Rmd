@@ -32,66 +32,62 @@ library(gplots)
 
 
 # Read 
-raw_data <- read.delim("data/GSE256420_patients_raw_counts.txt", check.names = FALSE)
+raw_patient_data <- read.delim("data/GSE256420_patients_raw_counts.txt", check.names = FALSE)
+additional_raw_patient_data <- read.delim("data/GSE256420_additional_patients_raw_counts.txt", check.names = FALSE)
 
+additional_raw_patient_sample_data <- additional_raw_patient_data[,-c(2:3)]
 
-counts_a <- as.matrix(raw_data[, -(1:3)])
-
-genes_a <- data.frame(
-  Gene_Name = raw_data$Gene_Name,
-  Biotype = raw_data$Biotype,
-  row.names = make.unique(raw_data$Gene_ID)
+combined_raw_patient_data <- merge(
+  raw_patient_data,
+  additional_raw_patient_sample_data,
+  by = "Gene_ID",
 )
 
-# Sample metadata — equivalent of colData(rse_gene)
-samples_a <- data.frame(
-  group = factor(ifelse(grepl("^F", colnames(counts_a)), "F", "NF")),
-  row.names = colnames(counts_a)
+
+counts <- as.matrix(combined_raw_patient_data[, -(1:3)])
+
+genes <- data.frame(
+  Gene_Name = combined_raw_patient_data$Gene_Name,
+  Biotype = combined_raw_patient_data$Biotype,
+  row.names = make.unique(combined_raw_patient_data$Gene_ID)
+)
+
+# Sample metadata 
+samples <- data.frame(
+  group = factor(ifelse(grepl("^F", colnames(counts)), "F", "NF")),
+  row.names = colnames(counts)
 )
 ```
 
 
 ## Data Exploration and Preprocessing
 ```{r data-exploration}
-# Create DGEList object
-# dge <- DGEList(raw_data)
-dge <- DGEList(counts = counts_a, samples = samples_a, genes = genes_a)
 
-dge <- calcNormFactors(dge, method = "TMM")
+dge_data <- DGEList(counts = counts, samples = samples, genes = genes)
 
-# show the nomalisation factors. For this dataset the effect of
-# TMM-normalisation is mild, as evident in the magnitude of the scaling
-# factors, which are all relatively close to 1.
-# TCGA$samples$norm.factors
+dge_data <- calcNormFactors(dge_data, method = "TMM")
 
-# Filter out lowly expressed genes that are unlikely to be informative
-# This improves statistical power and reduces computational burden
-keep <- filterByExpr(dge)
-dge <- dge[keep,]
 
-# Calculate counts per million (CPM) for each gene across all samples
-# This normalizes for library size differences
-cpm <- cpm(dge)
 
-# Calculate log-transformed CPM values
-# Log transformation stabilizes variance across expression levels
-lcpm <- cpm(dge, log=TRUE)
+keep_genes <- filterByExpr(dge_data)
+dge_data <- dge_data[keep_genes,]
 
-# Perform Principal Component Analysis (PCA) on the log-CPM values
-# Transpose the data to get samples as rows and genes as columns
+cpm <- cpm(dge_data)
+
+lcpm <- cpm(dge_data, log=TRUE)
+
 pca <- prcomp(t(lcpm), scale = TRUE)
 
-# Visualize PCA results with samples colored by age at diagnosis
-autoplot(pca, data = samples_a, colour = "group")
+autoplot(pca, data = samples, colour = "group")
 ```
 
 ```{r}
 
-design <- model.matrix(~ group, samples_a)
+design <- model.matrix(~ group, samples)
 
-v <- voom(dge, design, plot=TRUE)
+voom_data <- voom(dge_data, design, plot=TRUE)
 
-fit <- lmFit(v, design)
+fit <- lmFit(voom_data, design)
 
 efit <- eBayes(fit)
 # colnames(fit$coefficients)
@@ -100,19 +96,18 @@ volcanoplot(efit, coef = "groupNF", highlight = 10, names = efit$genes$Gene_Name
 ```
 
 ```{r heatmap}
-age <- topTable(efit, coef = "groupNF", adjust.method = "fdr", p.value = 0.05, number = Inf)
+diff_expressed_genes_table <- topTable(efit, coef = "groupNF", adjust.method = "fdr", p.value = 0.05, number = Inf)
 
-age$symbol <- dge$genes$Gene_Name[match(rownames(age), rownames(dge))]
+diff_expressed_genes_table$symbol <- dge_data$genes$Gene_Name[match(rownames(diff_expressed_genes_table), rownames(dge_data))]
 
-age.topgenes <- na.omit(age$symbol[1:5])  # Remove any NA symbols
+top5_gene_symbols <- na.omit(diff_expressed_genes_tablet$symbol[1:5])  # Remove any NA symbols
+top5_gene_indices <- which(dge_data$genes$Gene_Name %in% top5_gene_symbols)
 
-i <- which(dge$genes$Gene_Name %in% age.topgenes)
+lcpm <- voom_data$E
 
-lcpm <- v$E
+rownames(lcpm) <- dge_data$genes$Gene_Name
 
-rownames(lcpm) <- dge$genes$Gene_Name
-
-coolmap(lcpm[i, ], margin = c(8, 6), cexRow = 0.7, cexCol = 0.7,
+coolmap(lcpm[top5_gene_indices, ], margin = c(8, 6), cexRow = 0.7, cexCol = 0.7,
         main = "Top 5 DE Genes (log2 CPM)")
 
 ```
