@@ -230,25 +230,17 @@ plot_pretty_volcano <- function(fit, coef_name = "groupF", logFC_limit = 2.5, pv
   
   # Plot
   ggplot(top, aes(x = logFC, y = -log10(adj.P.Val))) +
-    geom_point(aes(colour = Significance, shape = Significance), alpha = 0.7, size = 2) +
-    geom_text_repel(
-      aes(label = label),
-      size = 3, max.overlaps = Inf, box.padding = 0.3, point.padding = 0.2
-    ) +
-    scale_colour_manual(values = c("Up" = "red", "Down" = "blue", "NS" = "grey")) +
-    scale_shape_manual(values = c("Up" = 16, "Down" = 17, "NS" = 1)) +
-    geom_vline(xintercept = 0, linetype = "dashed", colour = "black", linewidth = 0.5) +
-    coord_cartesian(xlim = c(-logFC_limit, logFC_limit), ylim = c(0, 4)) +
-    scale_x_continuous(breaks = c(-2, 0, 2)) +
-    theme_classic() +
-    theme(
-      axis.line = element_line(colour = "black", linewidth = 0.5),
-      legend.position = "none"
-    ) +
-    labs(
-      x = "Log2 Fold Change",
-      y = "-log10 Adjusted P-Value"
-    )
+  geom_point(aes(colour = Significance, shape = Significance), alpha = 0.7, size = 2) +
+  geom_text_repel(aes(label = label), size = 3, max.overlaps = Inf) +
+  scale_colour_manual(values = c("Up" = "red", "Down" = "blue", "NS" = "grey")) +
+  scale_shape_manual(values = c("Up" = 16, "Down" = 17, "NS" = 1)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "black") +
+  coord_cartesian(xlim = c(-logFC_limit, logFC_limit), ylim = c(0, 4)) +
+  scale_x_continuous(breaks = c(-2, 0, 2)) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "Log2 Fold Change", y = "-log10 Adjusted P-Value")
+
 }
 
 
