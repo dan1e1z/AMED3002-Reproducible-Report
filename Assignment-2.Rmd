@@ -26,7 +26,13 @@ library(org.Hs.eg.db)
 library(limma)
 library(edgeR)
 library(Glimma)
+
+# Reactome enrichment analysis
+library(ReactomePA)
+library(clusterProfiler)
 library(Homo.sapiens)
+
+
 library(SummarizedExperiment)
 library(gplots)
 
@@ -82,7 +88,6 @@ autoplot(pca, data = samples, colour = "group")
 ```
 
 ```{r}
-
 design <- model.matrix(~ group, samples)
 
 voom_data <- voom(dge_data, design, plot=TRUE)
@@ -92,7 +97,7 @@ fit <- lmFit(voom_data, design)
 efit <- eBayes(fit)
 # colnames(fit$coefficients)
 
-volcanoplot(efit, coef = "groupNF", highlight = 10, names = efit$genes$Gene_Name)
+volcanoplot(efit, coef = "groupNF", highlight = 20, names = efit$genes$Gene_Name)
 ```
 
 ```{r heatmap}
@@ -109,5 +114,66 @@ rownames(lcpm) <- dge_data$genes$Gene_Name
 
 coolmap(lcpm[top5_gene_indices, ], margin = c(8, 6), cexRow = 0.7, cexCol = 0.7,
         main = "Top 5 DE Genes (log2 CPM)")
+
+```
+
+```{r}
+# Define fold change and p-value threshold
+fc_threshold <- 1.5
+pvalue_threshold <- 0.05
+
+# Perform differential expression analysis using edgeR
+dge_data <- DGEList(counts = counts, samples = samples, genes = genes)
+
+# Normalise using TMM
+dge_data <- calcNormFactors(dge_data, method = "TMM")
+
+# Filter out lowly expressed genes
+keep_genes <- filterByExpr(dge_data)
+dge_data <- dge_data[keep_genes,]
+
+# Apply voom transformation (for linear modeling)
+cpm_data <- cpm(dge_data, log = TRUE)  # Log2 transformed counts per million
+design <- model.matrix(~ group, samples)
+voom_data <- voom(dge_data, design)
+
+# Fit linear model and compute statistics
+fit <- lmFit(voom_data, design)
+efit <- eBayes(fit)
+
+# Apply thresholds for differential expression: fold change and p-value
+results <- topTable(efit, coef = "groupNF", adjust.method = "fdr", p.value = pvalue_threshold, number = Inf)
+# Filter based on fold change (absolute FC ≥ 1.5)
+de_genes <- results[abs(results$logFC) >= log2(fc_threshold), ]
+```
+
+``{r}
+# Define the volcano plot function with the new fold change and p-value criteria
+volcano_plot <- function(efit, coef, title) {
+results <- topTable(efit, coef = coef, adjust.method = "fdr", p.value = pvalue_threshold, number = Inf)
+  # Filter based on fold change (absolute FC ≥ 1.5)
+  de_genes <- results[abs(results$logFC) >= log2(fc_threshold), ]
+  
+  # Create the volcano plot with colour highlighting for up/down-regulated genes
+  volcanoplot(efit, coef = coef, highlight = 20, names = efit$genes$Gene_Name, 
+              main = title, xlab = "Log2 Fold Change", ylab = "-Log10 p-value")
+}
+
+# Generate volcano plots for each of the three gene sets
+
+# (C) TGFB signaling
+tgfb_genes <- filter(fibrosis_enrichment, Description == "TGFB_signaling")$geneID
+tgfb_indices <- which(dge_data$genes$Gene_Name %in% tgfb_genes)
+volcano_plot(efit, coef = "groupNF", title = "TGFB Signaling")
+
+# (D) Extracellular matrix organization
+ecm_genes <- filter(fibrosis_enrichment, Description == "extracellular_matrix_organization")$geneID
+ecm_indices <- which(dge_data$genes$Gene_Name %in% ecm_genes)
+volcano_plot(efit, coef = "groupNF", title = "Extracellular Matrix Organization")
+
+# (E) Collagen synthesis
+collagen_genes <- filter(fibrosis_enrichment, Description == "collagen_synthesis")$geneID
+collagen_indices <- which(dge_data$genes$Gene_Name %in% collagen_genes)
+volcano_plot(efit, coef = "groupNF", title = "Collagen Synthesis")
 
 ```
