@@ -99,6 +99,20 @@ efit <- eBayes(fit)
 volcanoplot(efit, coef = "groupNF", highlight = 10, names = efit$genes$Gene_Name)
 ```
 
-```{r}
+```{r heatmap}
+age <- topTable(efit, coef = "groupNF", adjust.method = "fdr", p.value = 0.05, number = Inf)
+
+age$symbol <- dge$genes$Gene_Name[match(rownames(age), rownames(dge))]
+
+age.topgenes <- na.omit(age$symbol[1:5])  # Remove any NA symbols
+
+i <- which(dge$genes$Gene_Name %in% age.topgenes)
+
+lcpm <- v$E
+
+rownames(lcpm) <- dge$genes$Gene_Name
+
+coolmap(lcpm[i, ], margin = c(8, 6), cexRow = 0.7, cexCol = 0.7,
+        main = "Top 5 DE Genes (log2 CPM)")
 
 ```
