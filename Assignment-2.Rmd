@@ -34,10 +34,19 @@ library(clusterProfiler)
 library(AnnotationDbi)
 library(Homo.sapiens)
 
+# heatmap
+library(ComplexHeatmap)
+
+
+# test
+library(reactome.db)
 
 
 library(SummarizedExperiment)
 library(gplots)
+
+# heatmap
+library(pheatmap)
 
 
 # Read 
@@ -66,29 +75,35 @@ genes <- data.frame(
 
 # Sample metadata 
 samples <- data.frame(
-  # group = factor(ifelse(grepl("^F", colnames(counts)), "F", "NF")),
   group = factor(ifelse(grepl("^F", colnames(counts)), "F", "NF"), levels = c("NF", "F")),
   row.names = colnames(counts)
 )
 ```
 
+```{r  data-exploration}
+unique(combined_raw_patient_data$Biotype)
+
+lncRNA_data <- combined_raw_patient_data %>% filter(Biotype == "lncRNA")
+protein_coding_data <- combined_raw_patient_data %>% filter(Biotype == "protein-coding")
+```
 
 ## Data Exploration and Preprocessing
-```{r data-exploration}
+```{r}
 
 dge_data <- DGEList(counts = counts, samples = samples, genes = genes)
 
 dge_data <- calcNormFactors(dge_data, method = "TMM")
 
-
-
 keep_genes <- filterByExpr(dge_data)
+
 dge_data <- dge_data[keep_genes,]
 
 cpm <- cpm(dge_data)
 
 lcpm <- cpm(dge_data, log=TRUE)
+```
 
+```{r}
 pca <- prcomp(t(lcpm), scale = TRUE)
 
 autoplot(pca, data = samples, colour = "group")
@@ -104,24 +119,99 @@ fit <- lmFit(voom_data, design)
 efit <- eBayes(fit)
 # colnames(fit$coefficients)
 
-volcanoplot(efit, coef = "groupNF", highlight = 20, names = efit$genes$Gene_Name)
+volcanoplot(efit, coef = "groupF", highlight = 20, names = efit$genes$Gene_Name)
+```
+
+
+```{r}
+lncRNA_counts <- lncRNA_data[, -(1:3)]
+
+lncRNA_genes <- data.frame(
+  Gene_ID = lncRNA_data$Gene_ID,
+  Gene_Name = lncRNA_data$Gene_Name,
+  Biotype = lncRNA_data$Biotype
+)
+
+lncRNA_group <- factor(
+  ifelse(grepl("^F", colnames(lncRNA_counts)), "F", "NF"),
+  levels = c("NF", "F")
+)
+
+# DGEList Object
+lncRNA_dge <- DGEList(counts = lncRNA_counts, group = lncRNA_group, genes = lncRNA_genes)
+
+# Filter lowly expressed genes
+keep_genes <- filterByExpr(lncRNA_dge)
+lncRNA_dge <- lncRNA_dge[keep_genes, , keep.lib.sizes = FALSE]
+
+# Normalise library sizes and estimate dispersion
+lncRNA_dge <- calcNormFactors(lncRNA_dge)
+lncRNA_dge <- estimateDisp(lncRNA_dge)
+
+# Perform exact test for differential expression
+lncRNA_expression_test_results <- exactTest(lncRNA_dge)
+
+# Extract all DE results with gene info
+lncRNA_results <- topTags(lncRNA_expression_test_results, n = Inf)$table
+
+# Filter significant genes 
+lncRNA_significant_genes_filter <- lncRNA_results$PValue < 0.05 & abs(lncRNA_results$logFC) >= log2(1.405)
+lncRNA_significant_genes_differential_expression_results <- lncRNA_results[lncRNA_significant_genes_filter, ]
 ```
 
 ```{r heatmap}
-diff_expressed_genes_table <- topTable(efit, coef = "groupNF", adjust.method = "fdr", p.value = 0.05, number = Inf)
+# Identify samples by group
+group1_samples <- rownames(samples)[samples$group == "NF"]
+group2_samples <- rownames(samples)[samples$group == "F"] 
 
-diff_expressed_genes_table$symbol <- dge_data$genes$Gene_Name[match(rownames(diff_expressed_genes_table), rownames(dge_data))]
+manual_order <- c(group1_samples, group2_samples)
 
-top5_gene_symbols <- na.omit(diff_expressed_genes_table$symbol[1:5]) 
-top5_gene_indices <- which(dge_data$genes$Gene_Name %in% top5_gene_symbols)
+# Reorder lcpm and samples accordingly
+lcpm <- lcpm[, manual_order]
+samples <- samples[manual_order, , drop = FALSE]
 
-lcpm <- voom_data$E
+# Prepare annotation for columns
+sample_annotation <- samples["group"]
+rownames(sample_annotation) <- rownames(samples)
 
-rownames(lcpm) <- dge_data$genes$Gene_Name
+annotation_colors <- list(Condition = c(NF = "#98cc32", F = "#000000"))
 
-coolmap(lcpm[top5_gene_indices, ], margin = c(8, 6), cexRow = 0.7, cexCol = 0.7,
-        main = "Top 5 DE Genes (log2 CPM)")
+min_val <- min(lcpm, na.rm = TRUE)
+max_val <- max(lcpm, na.rm = TRUE)
+my_colors <- colorRampPalette(c("#6a3fff", "#FFFFFF", "#fc3e1c"))(100)
 
+# Order rows by mean expression descending
+row_order <- order(rowMeans(lcpm))
+lcpm <- lcpm[row_order, ]
+
+#column annotation
+col_heatmap_annotation <- HeatmapAnnotation(
+  Condition = sample_annotation$group,
+  col = annotation_colors,
+  show_annotation_name = TRUE,
+  annotation_name_side = "right"
+)
+
+Heatmap(
+  lcpm,
+  col = my_colors,
+  cluster_rows = FALSE,
+  cluster_columns = TRUE, 
+  show_row_names = FALSE,
+  show_column_names = TRUE,
+  column_title = NULL,
+  column_names_gp = gpar(fontsize = 8),
+  top_annotation = col_heatmap_annotation,
+  column_gap = unit(4, "mm"),
+  column_split = c(rep("NF", 9), rep("F", 10)),
+  heatmap_legend_param = list(
+    at = c(min_val, max_val),
+    labels = c("DOWN", "UP"),
+    title = "Expression",
+    legend_height = unit(4, "cm"),
+    direction = "vertical"
+  )
+)
 ```
 
 ```{r}
@@ -231,7 +321,7 @@ plot_pretty_volcano <- function(fit, coef_name = "groupF", logFC_limit = 2.5, pv
   # Plot
   ggplot(top, aes(x = logFC, y = -log10(adj.P.Val))) +
   geom_point(aes(colour = Significance, shape = Significance), alpha = 0.7, size = 2) +
-  geom_text_repel(aes(label = label), size = 3, max.overlaps = Inf) +
+  geom_text_repel(aes(label = label), size = 3, max.overlaps = Inf, segment.curvature = 0, segment.color = NA) +
   scale_colour_manual(values = c("Up" = "red", "Down" = "blue", "NS" = "grey")) +
   scale_shape_manual(values = c("Up" = 16, "Down" = 17, "NS" = 1)) +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "black") +
@@ -255,7 +345,7 @@ create_pathway_specific_volcano <- function(search)  {
 }
 
 create_pathway_specific_volcano("TGFB")
-create_pathway_specific_volcano("ECM")
-create_pathway_specific_volcano("collagen")
+create_pathway_specific_volcano("Extracellular matrix organization")
+create_pathway_specific_volcano("Collagen formation|Collagen biosynthesis")
 
 ```
