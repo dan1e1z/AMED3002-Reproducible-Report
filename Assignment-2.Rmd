@@ -160,6 +160,9 @@ lncRNA_significant_genes_differential_expression_results <- lncRNA_results[lncRN
 ```
 
 ```{r heatmap}
+
+lcpm <- cpm(lncRNA_dge, log = TRUE, prior.count = 1)
+
 # Identify samples by group
 group1_samples <- rownames(samples)[samples$group == "NF"]
 group2_samples <- rownames(samples)[samples$group == "F"] 
@@ -181,8 +184,9 @@ max_val <- max(lcpm, na.rm = TRUE)
 my_colors <- colorRampPalette(c("#6a3fff", "#FFFFFF", "#fc3e1c"))(100)
 
 # Order rows by mean expression descending
-row_order <- order(rowMeans(lcpm))
-lcpm <- lcpm[row_order, ]
+# row_order <- order(rowMeans(lcpm))
+# lcpm <- lcpm[row_order, ]
+
 
 #column annotation
 col_heatmap_annotation <- HeatmapAnnotation(
@@ -192,6 +196,7 @@ col_heatmap_annotation <- HeatmapAnnotation(
   annotation_name_side = "right"
 )
 
+ht_opt$message = FALSE
 Heatmap(
   lcpm,
   col = my_colors,
@@ -210,7 +215,8 @@ Heatmap(
     title = "Expression",
     legend_height = unit(4, "cm"),
     direction = "vertical"
-  )
+  ),
+  use_raster = TRUE,
 )
 ```
 
