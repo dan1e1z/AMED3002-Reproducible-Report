@@ -167,32 +167,33 @@ lncRNA_genes <- data.frame(
   Gene_Name = lncRNA_data$Gene_Name,
   Biotype = lncRNA_data$Biotype
 )
+
+# Create group factor
 lncRNA_group <- factor(ifelse(grepl("^F", colnames(lncRNA_counts)), "F", "NF"), levels = c("NF", "F"))
 
+# Create DGEList and perform differential expression analysis
 lncRNA_dge <- DGEList(counts = lncRNA_counts, group = lncRNA_group, genes = lncRNA_genes)
 lncRNA_dge <- lncRNA_dge[filterByExpr(lncRNA_dge), , keep.lib.sizes = FALSE]
 lncRNA_dge <- calcNormFactors(lncRNA_dge)
 lncRNA_dge <- estimateDisp(lncRNA_dge)
-
 lncRNA_expression_test_results <- exactTest(lncRNA_dge)
 lncRNA_results <- topTags(lncRNA_expression_test_results, n = Inf)$table
+
+# Filter for significant genes (P < 0.05 and |FC| >= 1.5)
 lncRNA_significant_genes_filter <- lncRNA_results$PValue < 0.05 & abs(lncRNA_results$logFC) >= log2(1.5)
-lncRNA_significant_genes_differential_expression_results <- lncRNA_data[lncRNA_significant_genes_filter, ]
 
-lncRNA_significant_counts <- lncRNA_significant_genes_differential_expression_results[, -(1:3)]
-lncRNA_significant_genes <- data.frame(
-  Gene_ID = lncRNA_data$Gene_ID,
-  Gene_Name = lncRNA_data$Gene_Name,
-  Biotype = lncRNA_data$Biotype
-)
-lncRNA_significant_group <- factor(ifelse(grepl("^F", colnames(lncRNA_counts)), "F", "NF"), levels = c("NF", "F"))
+# Get significant genes from the results table
+significant_results <- lncRNA_results[lncRNA_significant_genes_filter, ]
 
-lncRNA_significant_dge <- DGEList(counts = lncRNA_counts, group = lncRNA_group, genes = lncRNA_genes)
+# Get the gene names/IDs of significant genes
+significant_gene_ids <- rownames(significant_results)
 
+# Extract the significant genes from the original filtered DGE object
+lncRNA_filtered_dge <- lncRNA_dge[rownames(lncRNA_dge) %in% significant_gene_ids, ]
 ```
 
 ```{r pca}
-lcpm <- cpm(lncRNA_signficant_dge, log = TRUE, prior.count = 1)
+lcpm <- cpm(lncRNA_filtered_dge, log = TRUE, prior.count = 1)
 pca <- prcomp(t(lcpm), scale = TRUE)
 sample_info <- data.frame(
   Sample = colnames(lcpm),
@@ -203,16 +204,28 @@ autoplot(pca, data = sample_info, colour = "Group") +
 ```
 
 ```{r heatmap}
+# Calculate log2(CPM) for significant genes
+lcpm <- cpm(lncRNA_filtered_dge, log = TRUE, prior.count = 1)
 
-lcpm <- cpm(lncRNA_significant_dge, log = TRUE, prior.count = 1)
-
-manual_order <- c(
-  rownames(samples)[samples$group == "NF"],
-  rownames(samples)[samples$group == "F"]
+# Create sample metadata
+samples <- data.frame(
+  sample_id = colnames(lcpm),
+  group = factor(ifelse(grepl("^F", colnames(lcpm)), "F", "NF"), levels = c("NF", "F"))
 )
+rownames(samples) <- samples$sample_id
 
+# Manual ordering: NF samples first, then F samples
+nf_samples <- rownames(samples)[samples$group == "NF"]
+f_samples <- rownames(samples)[samples$group == "F"]
+manual_order <- c(nf_samples, f_samples)
+
+# Reorder data
 lcpm <- lcpm[, manual_order]
 samples <- samples[manual_order, , drop = FALSE]
+
+# Z-score normalization by row (gene) to enhance clustering patterns
+# This is crucial for getting the quadrant pattern
+lcpm <- t(scale(t(lcpm)))
 
 sample_annotation <- samples["group"]
 rownames(sample_annotation) <- rownames(samples)
@@ -245,7 +258,11 @@ Heatmap(
     legend_height = unit(4, "cm"),
     direction = "vertical"
   ),
-  use_raster = TRUE
+  use_raster = TRUE,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "complete",
+  row_km = 2,
+  row_title = NULL
 )
 ```
 
