@@ -177,11 +177,22 @@ lncRNA_dge <- estimateDisp(lncRNA_dge)
 lncRNA_expression_test_results <- exactTest(lncRNA_dge)
 lncRNA_results <- topTags(lncRNA_expression_test_results, n = Inf)$table
 lncRNA_significant_genes_filter <- lncRNA_results$PValue < 0.05 & abs(lncRNA_results$logFC) >= log2(1.5)
-lncRNA_significant_genes_differential_expression_results <- lncRNA_results[lncRNA_significant_genes_filter, ]
+lncRNA_significant_genes_differential_expression_results <- lncRNA_data[lncRNA_significant_genes_filter, ]
+
+lncRNA_significant_counts <- lncRNA_significant_genes_differential_expression_results[, -(1:3)]
+lncRNA_significant_genes <- data.frame(
+  Gene_ID = lncRNA_data$Gene_ID,
+  Gene_Name = lncRNA_data$Gene_Name,
+  Biotype = lncRNA_data$Biotype
+)
+lncRNA_significant_group <- factor(ifelse(grepl("^F", colnames(lncRNA_counts)), "F", "NF"), levels = c("NF", "F"))
+
+lncRNA_significant_dge <- DGEList(counts = lncRNA_counts, group = lncRNA_group, genes = lncRNA_genes)
+
 ```
 
 ```{r pca}
-lcpm <- cpm(lncRNA_dge, log = TRUE, prior.count = 1)
+lcpm <- cpm(lncRNA_signficant_dge, log = TRUE, prior.count = 1)
 pca <- prcomp(t(lcpm), scale = TRUE)
 sample_info <- data.frame(
   Sample = colnames(lcpm),
@@ -192,7 +203,9 @@ autoplot(pca, data = sample_info, colour = "Group") +
 ```
 
 ```{r heatmap}
-lcpm <- cpm(lncRNA_dge, log = TRUE, prior.count = 1)
+
+lcpm <- cpm(lncRNA_significant_dge, log = TRUE, prior.count = 1)
+
 manual_order <- c(
   rownames(samples)[samples$group == "NF"],
   rownames(samples)[samples$group == "F"]
@@ -219,7 +232,7 @@ Heatmap(
   lcpm,
   col = my_colors,
   cluster_rows = FALSE,
-  cluster_columns = TRUE, 
+  cluster_columns = TRUE,
   show_row_names = FALSE,
   show_column_names = TRUE,
   top_annotation = col_heatmap_annotation,
