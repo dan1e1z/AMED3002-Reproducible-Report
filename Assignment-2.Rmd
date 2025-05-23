@@ -98,16 +98,14 @@ get_genes_counts_samples <- function(data) {
   return(list(genes = genes, counts = counts, samples = samples))
 }
 
-voom_dge_analysis <- function(genes, counts, samples) {
-  dge <- DGEList(counts = counts, samples = samples, genes = genes)
+edger_dge_analysis <- function(genes, counts, samples) {
+  dge <- DGEList(counts = counts, group = samples$group, genes = genes)
+  dge <- dge[filterByExpr(dge), , keep.lib.sizes = FALSE]
   dge <- calcNormFactors(dge, method = "TMM")
-  keep_genes <- filterByExpr(dge)
-  dge <- dge[keep_genes, ]
-  design <- model.matrix(~ group, data = samples)
-  v <- voom(dge, design)
-  fit <- lmFit(v, design)
-  fit <- eBayes(fit)
-  return(fit)
+  dge <- estimateDisp(dge)
+  et <- exactTest(dge)
+  results <- topTags(et, n = Inf)$table
+  return(results)
 }
 
 get_pathway_specific_gene_dataset <- function(search, data) {
@@ -124,39 +122,40 @@ get_pathway_specific_gene_dataset <- function(search, data) {
   return(subset_data)
 }
 
-plot_pretty_volcano <- function(fit, coef_name = "groupF", logFC_limit = 2.5, pval_threshold = 0.05, highlight_n = 20) {
-  top <- topTable(fit, coef = coef_name, number = Inf, sort.by = "P")
-  top$Significance <- ifelse(top$logFC > 0 & top$adj.P.Val < pval_threshold, "Up",
-                             ifelse(top$logFC < 0 & top$adj.P.Val < pval_threshold, "Down", "NS"))
-  top$label <- ifelse(top$Significance != "NS", top$Gene_Name, NA)
-  top <- top %>% mutate(rank = -log10(adj.P.Val)) %>%
+plot_pretty_volcano <- function(results, logFC_limit = 2.5, pval_threshold = 0.05, fc_threshold = 1.5, highlight_n = 20) {
+  # Define significance based on P-value < 0.05 and absolute fold change >= 1.5
+  results$Significance <- ifelse(results$logFC > 0 & results$PValue < pval_threshold & abs(results$logFC) >= log2(fc_threshold), "Up",
+                                ifelse(results$logFC < 0 & results$PValue < pval_threshold & abs(results$logFC) >= log2(fc_threshold), "Down", "NS"))
+  results$label <- ifelse(results$Significance != "NS", results$Gene_Name, NA)
+  results <- results %>% mutate(rank = -log10(PValue)) %>%
     arrange(desc(rank)) %>%
     mutate(label = ifelse(row_number() <= highlight_n, label, NA))
-  top$Shape <- ifelse(top$Significance == "Up", 16, ifelse(top$Significance == "Down", 17, 1))
+  results$Shape <- ifelse(results$Significance == "Up", 16, ifelse(results$Significance == "Down", 17, 1))
 
-  ggplot(top, aes(x = logFC, y = -log10(adj.P.Val))) +
+  ggplot(results, aes(x = logFC, y = -log10(PValue))) +
     geom_point(aes(colour = Significance, shape = Significance), alpha = 0.7, size = 2) +
     geom_text_repel(aes(label = label), size = 3, max.overlaps = Inf, segment.curvature = 0, segment.color = NA) +
     scale_colour_manual(values = c("Up" = "red", "Down" = "blue", "NS" = "grey")) +
     scale_shape_manual(values = c("Up" = 16, "Down" = 17, "NS" = 1)) +
-    geom_vline(xintercept = 0, linetype = "dashed", colour = "black") +
-    coord_cartesian(xlim = c(-logFC_limit, logFC_limit), ylim = c(0, 4)) +
-    theme_classic() +
+    geom_vline(xintercept = c(-log2(fc_threshold), log2(fc_threshold)), linetype = "dashed", colour = "black") +
+    geom_hline(yintercept = -log10(pval_threshold), linetype = "dashed", colour = "black") +
+    coord_cartesian(xlim = c(-logFC_limit, logFC_limit)) +
+    theme_classic(base_size = 13) +
     theme(legend.position = "none") +
-    labs(x = "Log2 Fold Change", y = "-log10 Adjusted P-Value")
+    labs(x = "Log2 Fold Change", y = "-log10 (P-value)")
 }
 
 create_pretty_volcano <- function(data) {
   res <- get_genes_counts_samples(data)
-  fit <- voom_dge_analysis(res$genes, res$counts, res$samples)
-  plot_pretty_volcano(fit, coef_name = "groupF")
+  results <- edger_dge_analysis(res$genes, res$counts, res$samples)
+  plot_pretty_volcano(results)
 }
 
 create_pathway_specific_volcano <- function(search, data) {
   subset_data <- get_pathway_specific_gene_dataset(search, data)
   res <- get_genes_counts_samples(subset_data)
-  fit <- voom_dge_analysis(res$genes, res$counts, res$samples)
-  plot_pretty_volcano(fit, coef_name = "groupF")
+  results <- edger_dge_analysis(res$genes, res$counts, res$samples)
+  plot_pretty_volcano(results)
 }
 ```
 
@@ -269,40 +268,46 @@ Heatmap(
 ```{r volcano}
 volcano_data <- lncRNA_results %>%
   mutate(Significance = case_when(
-    PValue < 0.05 & abs(logFC) >= log2(1.5) & logFC > 0 ~ "Up",
-    PValue < 0.05 & abs(logFC) >= log2(1.5) & logFC < 0 ~ "Down",
-    TRUE ~ "NS"
+    PValue < 0.05 & abs(logFC) >= log2(1.5) & logFC > 0 ~ "Upregulated",
+    PValue < 0.05 & abs(logFC) >= log2(1.5) & logFC < 0 ~ "Downregulated",
+    TRUE ~ "Not-Significant"
   ))
 
 
-up_count <- sum(volcano_data$Significance == "Up")
-down_count <- sum(volcano_data$Significance == "Down")
+up_count <- sum(volcano_data$Significance == "Upregulated")
+down_count <- sum(volcano_data$Significance == "Downregulated")
 
 top_genes <- volcano_data %>%
-  filter(Significance != "NS") %>%
+  filter(Significance != "Not-Significant") %>%
   arrange(PValue) %>%
   head(15)
 
 ggplot(volcano_data, aes(x = logFC, y = -log10(PValue))) +
   geom_point(aes(colour = Significance), alpha = 0.7, size = 2) +
   geom_text_repel(data = top_genes, aes(label = Gene_Name), size = 3, max.overlaps = Inf) +
-  scale_colour_manual(values = c("Up" = "red", "Down" = "blue", "NS" = "grey")) +
+  scale_colour_manual(values = c("Upregulated" = "red", "Downregulated" = "blue", "Not-Significant" = "grey")) +
   geom_vline(xintercept = c(-log2(1.5), log2(1.5)), linetype = "dashed") +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
-  theme_classic() +
-  labs(x = "Log2 FoldChange", y = "-Log10(P-value)") +
-  
+  theme_classic(base_size = 13) +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "top",
+    plot.margin = margin(10, 15, 10, 10)
+  ) +
+  labs(
+      x = "Log2 FoldChange", 
+      y = "-Log10 (P-value)"
+      ) +
+  coord_cartesian(xlim = c(-4.5, 4.5), ylim = c(0, 7)) +
   annotate("text",
-         x = 5,
-         y = 7,
-         label = paste("Upregulated:", up_count),
-         hjust = 1, vjust = 1.5, colour = "red", size = 4) +
+           x = 4.2, y = 6.4,
+           label = paste(up_count, "upregulated"),
+           colour = "red", size = 4, hjust = 1) +
+  annotate("text",
+           x = -4.2, y = 6.4,
+           label = paste(down_count, "downregulated"),
+           colour = "blue", size = 4, hjust = 0)
 
-annotate("text",
-         x = -5,
-         y = 7,
-         label = paste("Downregulated:", down_count),
-         hjust = 0, vjust = 1.5, colour = "blue", size = 4)
 ```
 
 ```{r pathway-specific-volcano}
