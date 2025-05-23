@@ -301,11 +301,11 @@ ggplot(volcano_data, aes(x = logFC, y = -log10(PValue))) +
   coord_cartesian(xlim = c(-4.5, 4.5), ylim = c(0, 7)) +
   annotate("text",
            x = 4.2, y = 6.4,
-           label = paste(up_count, "upregulated"),
+           label = paste(up_count, "lncRNAs"),
            colour = "red", size = 4, hjust = 1) +
   annotate("text",
            x = -4.2, y = 6.4,
-           label = paste(down_count, "downregulated"),
+           label = paste(down_count, "lncRNAs"),
            colour = "blue", size = 4, hjust = 0)
 
 ```
