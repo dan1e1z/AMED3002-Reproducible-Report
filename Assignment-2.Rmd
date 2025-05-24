@@ -1,5 +1,5 @@
 ---
-title: "Assignment-2"
+title: "Assignment-2: Differential Expression Analysis of lncRNAs"
 author: "Daniel Lindsay-Shad"
 date: "`r Sys.Date()`"
 output:
@@ -16,21 +16,32 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
 ```{r load-libraries}
+# ═══════════════════════════════════════════════════════════════════════════════
+# PACKAGE LOADING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Data manipulation and visualization
 library(tidyverse)
 library(ggfortify)
 library(ggplot2)
 library(ggrepel)
 library(RColorBrewer)
+
+# Bioconductor packages for genomic data
 library(GEOquery)
 library(org.Hs.eg.db)
 library(limma)
 library(edgeR)
 library(Glimma)
+
+# Pathway enrichment analysis
 library(ReactomePA)
 library(clusterProfiler)
 library(AnnotationDbi)
 library(Homo.sapiens)
 library(reactome.db)
+
+# Heatmap and visualization
 library(ComplexHeatmap)
 library(SummarizedExperiment)
 library(gplots)
@@ -38,38 +49,72 @@ library(pheatmap)
 ```
 
 ```{r load-and-prepare-data}
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATA IMPORT AND PREPROCESSING
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# raw_patient_data <- read.delim("data/GSE256420_patients_norm_counts.txt", check.names = FALSE)
-# additional_raw_patient_data <- read.delim("data/GSE256420_additional_patients_norm_counts.txt", check.names = FALSE)
+# Load raw count datasets
+raw_patient_data <- read.delim(
+  "data/GSE256420_patients_raw_counts.txt", 
+  check.names = FALSE
+)
 
-raw_patient_data <- read.delim("data/GSE256420_patients_raw_counts.txt", check.names = FALSE)
-additional_raw_patient_data <- read.delim("data/GSE256420_additional_patients_raw_counts.txt", check.names = FALSE)
-additional_raw_patient_sample_data <- additional_raw_patient_data[,-c(2:3)]
+additional_raw_patient_data <- read.delim(
+  "data/GSE256420_additional_patients_raw_counts.txt", 
+  check.names = FALSE
+)
 
+# Extract sample data (remove duplicate gene annotations)
+additional_raw_patient_sample_data <- additional_raw_patient_data[, -c(2:3)]
+
+# Merge datasets by Gene_ID
 combined_raw_patient_data <- merge(
   raw_patient_data,
   additional_raw_patient_sample_data,
   by = "Gene_ID"
 )
 
+# ───────────────────────────────────────────────────────────────────────────────
+# CREATE DATA STRUCTURES
+# ───────────────────────────────────────────────────────────────────────────────
+
+# Count matrix (genes × samples)
 counts <- as.matrix(combined_raw_patient_data[, -(1:3)])
+
+# Gene annotations
 genes <- data.frame(
   Gene_Name = combined_raw_patient_data$Gene_Name,
   Biotype = combined_raw_patient_data$Biotype,
   row.names = make.unique(combined_raw_patient_data$Gene_ID)
 )
 
+# Sample metadata (F = Fibrotic, NF = Non-Fibrotic)
 samples <- data.frame(
-  group = factor(ifelse(grepl("^F", colnames(counts)), "F", "NF"), levels = c("NF", "F")),
+  group = factor(
+    ifelse(grepl("^F", colnames(counts)), "F", "NF"), 
+    levels = c("NF", "F")
+  ),
   row.names = colnames(counts)
 )
 
-# unique(combined_raw_patient_data$Biotype)
-lncRNA_data <- combined_raw_patient_data %>% filter(Biotype == "lncRNA")
-protein_coding_data <- combined_raw_patient_data %>% filter(Biotype == "protein-coding")
+# ───────────────────────────────────────────────────────────────────────────────
+# SUBSET BY BIOTYPE
+# ───────────────────────────────────────────────────────────────────────────────
+
+lncRNA_data <- combined_raw_patient_data %>% 
+  filter(Biotype == "lncRNA")
+
+protein_coding_data <- combined_raw_patient_data %>% 
+  filter(Biotype == "protein-coding")
 ```
 
+
 ```{r pathway-enrichment-preparation}
+# ═══════════════════════════════════════════════════════════════════════════════
+# PATHWAY ANALYSIS PREPARATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Convert gene symbols to ENTREZ IDs
 gene_entrez_ids <- clusterProfiler::bitr(
   combined_raw_patient_data$Gene_Name, 
   fromType = "SYMBOL", 
@@ -77,6 +122,7 @@ gene_entrez_ids <- clusterProfiler::bitr(
   OrgDb = org.Hs.eg.db
 )
 
+# Perform Reactome pathway enrichment
 pathway_enrichment <- enrichPathway(
   gene = gene_entrez_ids$ENTREZID, 
   organism = "human"
@@ -84,72 +130,134 @@ pathway_enrichment <- enrichPathway(
 ```
 
 ```{r functions}
+# ═══════════════════════════════════════════════════════════════════════════════
+# UTILITY FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
 get_genes_counts_samples <- function(data) {
-  genes <- data.frame (
+  # Extract components from dataset
+  genes <- data.frame(
     Gene_Name = data$Gene_Name,
     Biotype = data$Biotype,
     row.names = make.unique(data$Gene_ID)
   )
+  
   counts <- as.matrix(data[, -(1:3)])
+  
   samples <- data.frame(
-    group = factor(ifelse(grepl("^F", colnames(counts)), "F", "NF"), levels = c("NF", "F")),
+    group = factor(
+      ifelse(grepl("^F", colnames(counts)), "F", "NF"), 
+      levels = c("NF", "F")
+    ),
     row.names = colnames(counts)
   )
+  
   return(list(genes = genes, counts = counts, samples = samples))
 }
 
+# ───────────────────────────────────────────────────────────────────────────────
+
 edger_dge_analysis <- function(genes, counts, samples) {
+  # Standard edgeR pipeline
   dge <- DGEList(counts = counts, group = samples$group, genes = genes)
   dge <- dge[filterByExpr(dge), , keep.lib.sizes = FALSE]
   dge <- calcNormFactors(dge, method = "TMM")
   dge <- estimateDisp(dge)
+  
+  # Differential expression testing
   et <- exactTest(dge)
   results <- topTags(et, n = Inf)$table
+  
   return(results)
 }
 
+# ───────────────────────────────────────────────────────────────────────────────
+
 get_pathway_specific_gene_dataset <- function(search, data) {
+  # Find matching pathways
   pathway <- subset(pathway_enrichment@result, grepl(search, Description))
+  
+  # Extract and convert gene IDs
   gene_ids_list <- pathway$geneID
   gene_entrez_ids <- unlist(strsplit(gene_ids_list, split = "/"))
+  
   gene_symbols <- clusterProfiler::bitr(
     gene_entrez_ids, 
     fromType = "ENTREZID", 
     toType = "SYMBOL", 
     OrgDb = org.Hs.eg.db
   )
-  subset_data <- data %>% filter(Gene_Name %in% gene_symbols$SYMBOL)
+  
+  # Filter dataset
+  subset_data <- data %>% 
+    filter(Gene_Name %in% gene_symbols$SYMBOL)
+  
   return(subset_data)
 }
+```
 
-plot_pretty_volcano <- function(results, logFC_limit = 2.5, pval_threshold = 0.05, fc_threshold = 1.5, highlight_n = 20) {
-  # Define significance based on P-value < 0.05 and absolute fold change >= 1.5
-  results$Significance <- ifelse(results$logFC > 0 & results$PValue < pval_threshold & abs(results$logFC) >= log2(fc_threshold), "Up",
-                                ifelse(results$logFC < 0 & results$PValue < pval_threshold & abs(results$logFC) >= log2(fc_threshold), "Down", "NS"))
+```{r volcano-functions}
+# ═══════════════════════════════════════════════════════════════════════════════
+# VISUALIZATION FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+plot_pretty_volcano <- function(results, 
+                                logFC_limit = 2.5, 
+                                pval_threshold = 0.05, 
+                                fc_threshold = 1.5, 
+                                highlight_n = 20) {
+  
+  # Define significance categories
+  results$Significance <- ifelse(
+    results$logFC > 0 & 
+    results$PValue < pval_threshold & 
+    abs(results$logFC) >= log2(fc_threshold), 
+    "Up",
+    ifelse(
+      results$logFC < 0 & 
+      results$PValue < pval_threshold & 
+      abs(results$logFC) >= log2(fc_threshold), 
+      "Down", 
+      "NS"
+    )
+  )
+  
+  # Prepare gene labels
   results$label <- ifelse(results$Significance != "NS", results$Gene_Name, NA)
-  results <- results %>% mutate(rank = -log10(PValue)) %>%
+  
+  results <- results %>% 
+    mutate(rank = -log10(PValue)) %>%
     arrange(desc(rank)) %>%
     mutate(label = ifelse(row_number() <= highlight_n, label, NA))
-  results$Shape <- ifelse(results$Significance == "Up", 16, ifelse(results$Significance == "Down", 17, 1))
 
+  # Create volcano plot
   ggplot(results, aes(x = logFC, y = -log10(PValue))) +
-    geom_point(aes(colour = Significance, shape = Significance), alpha = 0.7, size = 2) +
-    geom_text_repel(aes(label = label), size = 3, max.overlaps = Inf, segment.curvature = 0, segment.color = NA) +
+    geom_point(aes(colour = Significance, shape = Significance), 
+               alpha = 0.7, size = 2) +
+    geom_text_repel(aes(label = label), 
+                    size = 3, max.overlaps = Inf, 
+                    segment.curvature = 0, segment.color = NA) +
     scale_colour_manual(values = c("Up" = "red", "Down" = "blue", "NS" = "grey")) +
     scale_shape_manual(values = c("Up" = 16, "Down" = 17, "NS" = 1)) +
-    geom_vline(xintercept = c(-log2(fc_threshold), log2(fc_threshold)), linetype = "dashed", colour = "black") +
-    geom_hline(yintercept = -log10(pval_threshold), linetype = "dashed", colour = "black") +
+    geom_vline(xintercept = c(-log2(fc_threshold), log2(fc_threshold)), 
+               linetype = "dashed", colour = "black") +
+    geom_hline(yintercept = -log10(pval_threshold), 
+               linetype = "dashed", colour = "black") +
     coord_cartesian(xlim = c(-logFC_limit, logFC_limit)) +
     theme_classic(base_size = 13) +
     theme(legend.position = "none") +
     labs(x = "Log2 Fold Change", y = "-log10 (P-value)")
 }
 
+# ───────────────────────────────────────────────────────────────────────────────
+
 create_pretty_volcano <- function(data) {
   res <- get_genes_counts_samples(data)
   results <- edger_dge_analysis(res$genes, res$counts, res$samples)
   plot_pretty_volcano(results)
 }
+
+# ───────────────────────────────────────────────────────────────────────────────
 
 create_pathway_specific_volcano <- function(search, data) {
   subset_data <- get_pathway_specific_gene_dataset(search, data)
@@ -160,60 +268,103 @@ create_pathway_specific_volcano <- function(search, data) {
 ```
 
 ```{r lncRNA-differential-expression-analysis}
+# ═══════════════════════════════════════════════════════════════════════════════
+# LNCRNA ANALYSIS PIPELINE  
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Prepare lncRNA-specific data
 lncRNA_counts <- lncRNA_data[, -(1:3)]
+
 lncRNA_genes <- data.frame(
   Gene_ID = lncRNA_data$Gene_ID,
   Gene_Name = lncRNA_data$Gene_Name,
   Biotype = lncRNA_data$Biotype
 )
 
-# Create group factor
-lncRNA_group <- factor(ifelse(grepl("^F", colnames(lncRNA_counts)), "F", "NF"), levels = c("NF", "F"))
+lncRNA_group <- factor(
+  ifelse(grepl("^F", colnames(lncRNA_counts)), "F", "NF"), 
+  levels = c("NF", "F")
+)
 
-# Create DGEList and perform differential expression analysis
-lncRNA_dge <- DGEList(counts = lncRNA_counts, group = lncRNA_group, genes = lncRNA_genes)
+# ───────────────────────────────────────────────────────────────────────────────
+# DIFFERENTIAL EXPRESSION ANALYSIS
+# ───────────────────────────────────────────────────────────────────────────────
+
+# Standard edgeR workflow
+lncRNA_dge <- DGEList(
+  counts = lncRNA_counts, 
+  group = lncRNA_group, 
+  genes = lncRNA_genes
+)
+
 lncRNA_dge <- lncRNA_dge[filterByExpr(lncRNA_dge), , keep.lib.sizes = FALSE]
 lncRNA_dge <- calcNormFactors(lncRNA_dge)
 lncRNA_dge <- estimateDisp(lncRNA_dge)
+
+# Statistical testing
 lncRNA_expression_test_results <- exactTest(lncRNA_dge)
 lncRNA_results <- topTags(lncRNA_expression_test_results, n = Inf)$table
 
-# Filter for significant genes (P < 0.05 and |FC| >= 1.5)
-lncRNA_significant_genes_filter <- lncRNA_results$PValue < 0.05 & abs(lncRNA_results$logFC) >= log2(1.5)
+# ───────────────────────────────────────────────────────────────────────────────
+# FILTER SIGNIFICANT GENES
+# ───────────────────────────────────────────────────────────────────────────────
 
-# Get significant genes from the results table
+# Apply significance thresholds (P < 0.05, |FC| >= 1.5)
+lncRNA_significant_genes_filter <- lncRNA_results$PValue < 0.05 & 
+                                   abs(lncRNA_results$logFC) >= log2(1.5)
+
 significant_results <- lncRNA_results[lncRNA_significant_genes_filter, ]
-
-# Get the gene names/IDs of significant genes
 significant_gene_ids <- rownames(significant_results)
 
-# Extract the significant genes from the original filtered DGE object
+# Create filtered DGE object for visualization
 lncRNA_filtered_dge <- lncRNA_dge[rownames(lncRNA_dge) %in% significant_gene_ids, ]
 ```
 
 ```{r pca}
+# ═══════════════════════════════════════════════════════════════════════════════
+# PCA VISUALIZATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Calculate log-CPM for significant lncRNAs
 lcpm <- cpm(lncRNA_filtered_dge, log = TRUE, prior.count = 1)
+
+# Perform PCA (samples as observations)
 pca <- prcomp(t(lcpm), scale = TRUE)
+
+# Prepare sample metadata
 sample_info <- data.frame(
   Sample = colnames(lcpm),
   Group = lncRNA_group
 )
+
+# Generate PCA plot
 autoplot(pca, data = sample_info, colour = "Group") +
   theme_minimal()
 ```
 
 ```{r heatmap}
-# Calculate log2(CPM) for significant genes
+# ═══════════════════════════════════════════════════════════════════════════════
+# HEATMAP GENERATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Prepare expression data
 lcpm <- cpm(lncRNA_filtered_dge, log = TRUE, prior.count = 1)
 
 # Create sample metadata
 samples <- data.frame(
   sample_id = colnames(lcpm),
-  group = factor(ifelse(grepl("^F", colnames(lcpm)), "F", "NF"), levels = c("NF", "F"))
+  group = factor(
+    ifelse(grepl("^F", colnames(lcpm)), "F", "NF"), 
+    levels = c("NF", "F")
+  )
 )
 rownames(samples) <- samples$sample_id
 
-# Manual ordering: NF samples first, then F samples
+# ───────────────────────────────────────────────────────────────────────────────
+# SAMPLE ORDERING AND NORMALIZATION
+# ───────────────────────────────────────────────────────────────────────────────
+
+# Order samples: NF first, then F
 nf_samples <- rownames(samples)[samples$group == "NF"]
 f_samples <- rownames(samples)[samples$group == "F"]
 manual_order <- c(nf_samples, f_samples)
@@ -222,16 +373,21 @@ manual_order <- c(nf_samples, f_samples)
 lcpm <- lcpm[, manual_order]
 samples <- samples[manual_order, , drop = FALSE]
 
-# Z-score normalization by row (gene) to enhance clustering patterns
-# This is crucial for getting the quadrant pattern
+# Z-score normalization by gene
 lcpm <- t(scale(t(lcpm)))
 
+# ───────────────────────────────────────────────────────────────────────────────
+# HEATMAP STYLING
+# ───────────────────────────────────────────────────────────────────────────────
+
+# Define colors and annotations
 sample_annotation <- samples["group"]
 rownames(sample_annotation) <- rownames(samples)
 
 annotation_colors <- list(Condition = c(NF = "#98cc32", F = "#000000"))
 my_colors <- colorRampPalette(c("#6a3fff", "#FFFFFF", "#fc3e1c"))(100)
 
+# Create column annotation
 col_heatmap_annotation <- HeatmapAnnotation(
   Condition = sample_annotation$group,
   col = annotation_colors,
@@ -239,7 +395,12 @@ col_heatmap_annotation <- HeatmapAnnotation(
   annotation_name_side = "right"
 )
 
+# ───────────────────────────────────────────────────────────────────────────────
+# GENERATE HEATMAP
+# ───────────────────────────────────────────────────────────────────────────────
+
 ht_opt$message = FALSE
+
 Heatmap(
   lcpm,
   col = my_colors,
@@ -266,6 +427,11 @@ Heatmap(
 ```
 
 ```{r volcano}
+# ═══════════════════════════════════════════════════════════════════════════════
+# VOLCANO PLOT VISUALIZATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Categorize genes by significance
 volcano_data <- lncRNA_results %>%
   mutate(Significance = case_when(
     PValue < 0.05 & abs(logFC) >= log2(1.5) & logFC > 0 ~ "Upregulated",
@@ -273,19 +439,29 @@ volcano_data <- lncRNA_results %>%
     TRUE ~ "Not-Significant"
   ))
 
-
+# Count significant genes
 up_count <- sum(volcano_data$Significance == "Upregulated")
 down_count <- sum(volcano_data$Significance == "Downregulated")
 
+# Select top genes for labeling
 top_genes <- volcano_data %>%
   filter(Significance != "Not-Significant") %>%
   arrange(PValue) %>%
   head(15)
 
+# ───────────────────────────────────────────────────────────────────────────────
+# CREATE VOLCANO PLOT
+# ───────────────────────────────────────────────────────────────────────────────
+
 ggplot(volcano_data, aes(x = logFC, y = -log10(PValue))) +
   geom_point(aes(colour = Significance), alpha = 0.7, size = 2) +
-  geom_text_repel(data = top_genes, aes(label = Gene_Name), size = 3, max.overlaps = Inf) +
-  scale_colour_manual(values = c("Upregulated" = "red", "Downregulated" = "blue", "Not-Significant" = "grey")) +
+  geom_text_repel(data = top_genes, aes(label = Gene_Name), 
+                  size = 3, max.overlaps = Inf) +
+  scale_colour_manual(values = c(
+    "Upregulated" = "red", 
+    "Downregulated" = "blue", 
+    "Not-Significant" = "grey"
+  )) +
   geom_vline(xintercept = c(-log2(1.5), log2(1.5)), linetype = "dashed") +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
   theme_classic(base_size = 13) +
@@ -295,23 +471,32 @@ ggplot(volcano_data, aes(x = logFC, y = -log10(PValue))) +
     plot.margin = margin(10, 15, 10, 10)
   ) +
   labs(
-      x = "Log2 FoldChange", 
-      y = "-Log10 (P-value)"
-      ) +
+    x = "Log2 FoldChange", 
+    y = "-Log10 (P-value)"
+  ) +
   coord_cartesian(xlim = c(-4.5, 4.5), ylim = c(0, 7)) +
-  annotate("text",
-           x = 4.2, y = 6.4,
-           label = paste(up_count, "lncRNAs"),
+  annotate("text", x = 4.2, y = 6.4, label = paste(up_count, "lncRNAs"),
            colour = "red", size = 4, hjust = 1) +
-  annotate("text",
-           x = -4.2, y = 6.4,
-           label = paste(down_count, "lncRNAs"),
+  annotate("text", x = -4.2, y = 6.4, label = paste(down_count, "lncRNAs"),
            colour = "blue", size = 4, hjust = 0)
-
 ```
 
+
 ```{r pathway-specific-volcano}
+# ═══════════════════════════════════════════════════════════════════════════════
+# PATHWAY-SPECIFIC ANALYSIS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# TGF-β signaling pathway
 create_pathway_specific_volcano("TGFB", protein_coding_data)
+
+# ───────────────────────────────────────────────────────────────────────────────
+
+# Extracellular matrix organization
 create_pathway_specific_volcano("Extracellular matrix organization", protein_coding_data)
+
+# ───────────────────────────────────────────────────────────────────────────────
+
+# Collagen formation and biosynthesis
 create_pathway_specific_volcano("Collagen formation|Collagen biosynthesis", protein_coding_data)
 ```
