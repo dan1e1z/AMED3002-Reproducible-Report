@@ -47,8 +47,8 @@ The analysis of coding and noncoding transcriptomes successfully distinguished b
 2. [Load and Prepare Data](#load-and-prepare-data)  
 3. [Pathway Enrichment Preparation](#pathway-enrichment-preparation)  
 4. [Utility Functions](#utility-functions)  
-5. [Volcano Plot Functions](#volcano-functions)  
-6. [lncRNA Differential Expression Analysis](#lncRNA-differential-expression-analysis)  
+5. [Volcano Plot Functions](#volcano-functions)
+6. [lncRNA Differential Expression Analysis](#lncrna-differential-expression-analysis)
 7. [Differential Expression Analysis](#differential-expression-analysis)  
 8. [Pathway Enrichment Analysis](#pathway-enrichment-analysis)
 
@@ -63,8 +63,66 @@ knitr::include_graphics("Figure-Images/Figure1-Workflow.jpg")
 Figure 1. Workflow of the experimental strategy used to investigate differentially expressed genes between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient cells, all treated by radiation therapy (Vinasco-Sandoval et al. 2025, Figure 1A).
 :::
 
+# Evaluation of Methods and Analysis
 
-## Load Libraries
+## Methodological Justification
+
+The study design used clinically stratified, patient-derived fibroblasts to assess intrinsic radiosensitivity. Whole exome sequencing excluded known radiosensitivity mutations. RNA-seq provided broad transcriptomic coverage. Lasso and Cox regression identified fibrosis-linked lncRNAs, with VIM-AS1 emerging as the most predictive. Validation was performed via ddPCR and functional assays in independent fibroblast systems.
+
+## Analytical Framework
+
+- RNA Quantification: Salmon
+- Differential Expression: EdgeR
+- Pathway and Functional Enrichment: ClusterProfiler, ReactomePA
+- Predictive Modelling: Lasso and Cox regression (R)
+- Validation Techniques: ddPCR, RT-qPCR, flow cytometry, 3D collagen contraction assay
+- Post-Knockdown Analysis: Weighted gene co-expression network analysis (WGCNA)
+- Statistical Testing: Wilcoxon-Mann-Whitney, t-test, Kruskal-Wallis, ANOVA (GraphPad Prism)
+
+## Strengths
+- Use of primary patient-derived cells with known clinical outcomes
+- Exclusion of genetic confounders
+- Multi-modal validation from RNA to function
+- Reproducibility using independent ASOs
+
+## Limitations
+- No explicit discussion of method limitations in the paper
+- Lack of tissue-level validation
+- No comparison with alternative modelling approaches
+
+## Impact on Results
+The methodological design enabled identification and validation of fibrosis-linked lncRNAs. VIM-AS1 was confirmed as a key biomarker with regulatory effects on ECM, cell cycle, and DNA repair pathways. The study provides a strong foundation for transcriptomic risk stratification in radiotherapy-induced fibrosis.
+
+# Evaluation of Reproduced Results
+
+## Data
+### GSE256420 Patients Raw Counts Data Set
+
+- 16,123 instances (genes)
+
+- 3 categorical attributes:
+  - **Gene\_ID**: Ensembl ID with version
+  - **Gene\_Name**: Official Gene Symbol
+  - **BioType**: *protein-coding* or *lncRNA*
+  
+- 12 numerical attributes:
+  - Raw expression counts across 12 samples (F01–F06, NF01–NF06)
+
+### GSE256420 Additional Patients Raw Counts Data Set
+
+- 18,201 instances (genes)
+
+- 3 categorical attributes:
+  - **Gene\_ID**: Ensembl ID with version
+  - **Gene\_Name**: Official Gene Symbol
+  - **BioType**: *protein-coding* or *lncRNA*
+  
+- 7 numerical attributes:
+  - Raw expression counts across 7 samples (F07–F10, NF07–NF09)
+  
+Expression profiling by high-throughput sequencing; data retrieved from the Gene Expression Omnibus: [GSE256420](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE256420)
+
+### Load Libraries
 ```{r load-libraries}
 # ═══════════════════════════════════════════════════════════════════════════════
 # PACKAGE LOADING
@@ -101,7 +159,7 @@ library(pheatmap)
 library(patchwork)
 ```
 
-## Load And Prepare Data
+### Load And Prepare Data
 ```{r load-and-prepare-data}
 # ═══════════════════════════════════════════════════════════════════════════════
 # DATA IMPORT AND PREPROCESSING
@@ -162,7 +220,7 @@ protein_coding_data <- combined_raw_patient_data %>%
   filter(Biotype == "protein-coding")
 ```
 
-## Pathway Enrichment Preparation
+### Pathway Enrichment Preparation
 ```{r pathway-enrichment-preparation}
 # ═══════════════════════════════════════════════════════════════════════════════
 # PATHWAY ANALYSIS PREPARATION
@@ -183,7 +241,7 @@ pathway_enrichment <- enrichPathway(
 )
 ```
 
-## Untility Functions
+### Untility Functions
 ```{r functions}
 # ═══════════════════════════════════════════════════════════════════════════════
 # UTILITY FUNCTIONS
@@ -250,7 +308,7 @@ get_pathway_specific_gene_dataset <- function(search, data) {
   return(subset_data)
 }
 ```
-## Volcano Functions
+### Volcano Functions
 ```{r volcano-functions}
 # ═══════════════════════════════════════════════════════════════════════════════
 # VISUALIZATION FUNCTIONS
@@ -322,7 +380,7 @@ create_pathway_specific_volcano <- function(search, data) {
 }
 ```
 
-## LncRNA Differential Expression Analysis
+### lncRNA Differential Expression Analysis
 ```{r lncRNA-differential-expression-analysis}
 # ═══════════════════════════════════════════════════════════════════════════════
 # LNCRNA ANALYSIS PIPELINE  
@@ -376,7 +434,6 @@ significant_gene_ids <- rownames(significant_results)
 lncRNA_filtered_dge <- lncRNA_dge[rownames(lncRNA_dge) %in% significant_gene_ids, ]
 ```
 
-# Results
 ## Differential Expression Analysis
 ### PCA
 ```{r pca}
@@ -504,6 +561,13 @@ Paper Heatmap Plot
 Figure 3. Heatmap comparison showing the differential expression of 531 long noncoding RNAs (lncRNAs) between 10 fibrosis (F, black) and 9 non-fibrosis (NF, green) breast cancer patient samples treated with radiation therapy. (Left) Heatmap generated in this study based on log2-transformed counts per million (CPM). (Right) Heatmap from (Vinasco-Sandoval et al. 2025, Figure 1A), illustrating the noncoding transcriptome’s ability to discriminate fibrosis from nonfibrosis patients (Vinasco-Sandoval et al., 2025).
 :::
 
+Reproduced the heatmap of differentially expressed lncRNAs distinguishing fibrosis (F) and non-fibrosis (NF) samples using EdgeR-filtered data and log2 CPM normalisation as per the paper ([lncRNA Differential Expression Analysis](#lncrna-differential-expression-analysis)).
+
+Data were normalised with R’s cpm function, and samples ordered by group (NF then F) to match the original. Z-score scaling by gene was applied for clarity, though not specified by the authors ([Heatmap Code](#heatmap)).
+
+The heatmap clearly separated groups, supporting the original findings. Lack of detail on scaling is a minor reproducibility limitation (Figure 3).
+
+
 ### Volcano
 :::::: {style="display: flex; gap: 20px;"}
 ::: {style="flex: 1; text-align: center; font-weight: bold;"}
@@ -573,6 +637,12 @@ Paper Volcano Plot
 Figure 4. Volcano plot comparison showing the differential expression of long noncoding RNAs (lncRNAs) between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient samples treated with radiation therapy. (Left) Volcano plot generated in this study displaying significant upregulated (red) and downregulated (blue) lncRNAs with top 15 genes labelled, based on independent analysis of data from Vinasco-Sandoval et al. (2025). (Right) Volcano plot from (Vinasco-Sandoval et al. 2025, Figure 2A), illustrating the noncoding transcriptome’s ability to discriminate fibrosis from nonfibrosis patients.
 :::
 
+Differential expression analysis was conducted using EdgeR, applying the criteria of P < 0.05 and absolute fold change ≥ 1.5, to reproduce the volcano plot of lncRNAs distinguishing fibrosis (F) and non-fibrosis (NF) samples. This analysis identified 378 differentially expressed lncRNAs, comprising 234 downregulated and 144 upregulated transcripts, which is fewer than the 531 reported in the original study ([lncRNA Differential Expression Analysis](#lncrna-differential-expression-analysis), [volcano Code](#volcano)).
+
+The discrepancy likely reflects undocumented differences in pre-processing, gene filtering, or software versions that influenced gene inclusion prior to differential analysis. The original study did not provide sufficient methodological detail to enable exact reproduction of these steps.
+
+Nonetheless, the reproduced volcano plot clearly reflected group separation, consistent with the original findings and supporting the conclusion that the noncoding transcriptome discriminates patient groups (Figure 4). However, the omission of key filtering and processing information remains a limitation for reproducibility.
+
 
 ## Pathway Enrichment Analysis
 :::::: {style="display: flex; gap: 20px;"}
@@ -588,10 +658,6 @@ plot_B <- create_pathway_specific_volcano("Extracellular matrix organization", p
 plot_C <- create_pathway_specific_volcano("Collagen formation|Collagen biosynthesis", protein_coding_data) +
   ggtitle("C") +
   theme(plot.title = element_text(hjust = 0, size = 16, face = "bold", margin = margin(b = 20)))
-
-# plot_A
-# plot_B
-# plot_C
 
 combined_plot <- plot_A / plot_B / plot_C + 
   plot_layout(ncol = 1, heights = c(1, 1, 1)) & 
@@ -610,3 +676,11 @@ Paper Volcano Plots
 ::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
 Figure 5. Pathway-specific volcano plots showing differential expression of protein-coding genes related to (A) TGFB signalling, (B) Extracellular matrix organization, and (C) Collagen formation/biosynthesis between fibrosis (F) and non-fibrosis (NF) breast cancer patient samples treated with radiation therapy. (Left) Volcano plots generated in this study based on independent analysis of the data. (Right) Corresponding volcano plots from (Vinasco-Sandoval et al. 2025, Figure 1(C-E)), illustrating pathway enrichment linked to fibrosis susceptibility.
 :::
+
+Differential expression analysis of protein-coding genes was performed using EdgeR, applying the same criteria as the original study (P < 0.05, |fold change| ≥ 1.5). This yielded 2,162 differentially expressed mRNAs, consistent with the reported total.
+
+Functional enrichment analysis using ReactomePA identified significantly enriched pathways, including TGFB signalling, extracellular matrix organisation, and collagen synthesis (FDR < 0.05). To reproduce the pathway-specific volcano plots (Figure 5A–C, left), genes were filtered to include only those within each Reactome pathway and meeting the differential expression thresholds ([Pathway Enrichment Preparation](#pathway-enrichment-preparation), [Pathway Volcano Code](#pathway-specific-volcano)).
+
+While the plots were successfully generated using this approach, exact reproduction was limited by insufficient detail on the pathway filtering and gene-to-pathway mapping procedures in the original methods. Specifically, the paper did not describe the Reactome version used or the precise logic for subsetting DE genes for these plots.
+
+Despite these gaps, the reproduced plots (Figure 5, left) captured key pathway-level expression differences between fibrosis and non-fibrosis samples, supporting the original study’s conclusions as visualised in their corresponding plots (Vinasco-Sandoval et al. 2025, Figure 1C–E; Figure 5, right).
