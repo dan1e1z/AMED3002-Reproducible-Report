@@ -11,7 +11,6 @@ output:
     toc_float: true
     fig_caption: true
 ---
-<!-- number_sections: true -->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
@@ -463,6 +462,8 @@ autoplot(pca, data = sample_info, colour = "Group") +
 Figure 2. Principal component analysis (PCA) of log-transformed counts per million (log-CPM) for significant long noncoding RNAs (lncRNAs), showing sample clustering between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient cells based on papers data (Vinasco-Sandoval et al. 2025). This analysis was independently performed in this study.
 :::
 
+Principal component analysis of log-CPM values for significant lncRNAs showed that PC1 explained 52.81% of the variance and PC2 explained 7.53%, with clear separation between fibrosis (F) and non-fibrosis (NF) samples, indicating that these components effectively distinguish the two groups based on lncRNA expression profiles (Figure 2).
+
 ### Heatmap
 :::::: {style="display: flex; gap: 20px;"}
 ::: {style="flex: 1; text-align: center; font-weight: bold;"}
@@ -561,11 +562,18 @@ Paper Heatmap Plot
 Figure 3. Heatmap comparison showing the differential expression of 531 long noncoding RNAs (lncRNAs) between 10 fibrosis (F, black) and 9 non-fibrosis (NF, green) breast cancer patient samples treated with radiation therapy. (Left) Heatmap generated in this study based on log2-transformed counts per million (CPM). (Right) Heatmap from (Vinasco-Sandoval et al. 2025, Figure 1A), illustrating the noncoding transcriptome’s ability to discriminate fibrosis from nonfibrosis patients (Vinasco-Sandoval et al., 2025).
 :::
 
-Reproduced the heatmap of differentially expressed lncRNAs distinguishing fibrosis (F) and non-fibrosis (NF) samples using EdgeR-filtered data and log2 CPM normalisation as per the paper ([lncRNA Differential Expression Analysis](#lncrna-differential-expression-analysis)).
+### Strengths
 
-Data were normalised with R’s cpm function, and samples ordered by group (NF then F) to match the original. Z-score scaling by gene was applied for clarity, though not specified by the authors ([Heatmap Code](#heatmap)).
+- Successfully reproduced the heatmap of differentially expressed lncRNAs distinguishing fibrosis (F) and non-fibrosis (NF) samples using EdgeR-filtered data and log2 CPM normalisation as per the paper ([lncRNA Differential Expression Analysis](#lncrna-differential-expression-analysis)).
+- Data were normalised with R’s `cpm` function, and samples ordered by group (NF then F) to match the original figure.
+- Z-score scaling by gene was applied for clarity, although not specified by the authors ([Heatmap Code](#heatmap)).
+- The heatmap clearly separated groups, supporting the original findings (Figure 3).
 
-The heatmap clearly separated groups, supporting the original findings. Lack of detail on scaling is a minor reproducibility limitation (Figure 3).
+### Weaknesses
+
+- The original study did not specify the use of Z-score scaling, making this an interpretive step.
+- Clustering parameters (distance metric, linkage) were not detailed, which may cause minor differences in sample grouping.
+- These gaps represent minor reproducibility limitations affecting exact figure replication.
 
 
 ### Volcano
@@ -637,11 +645,17 @@ Paper Volcano Plot
 Figure 4. Volcano plot comparison showing the differential expression of long noncoding RNAs (lncRNAs) between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient samples treated with radiation therapy. (Left) Volcano plot generated in this study displaying significant upregulated (red) and downregulated (blue) lncRNAs with top 15 genes labelled, based on independent analysis of data from Vinasco-Sandoval et al. (2025). (Right) Volcano plot from (Vinasco-Sandoval et al. 2025, Figure 2A), illustrating the noncoding transcriptome’s ability to discriminate fibrosis from nonfibrosis patients.
 :::
 
-Differential expression analysis was conducted using EdgeR, applying the criteria of P < 0.05 and absolute fold change ≥ 1.5, to reproduce the volcano plot of lncRNAs distinguishing fibrosis (F) and non-fibrosis (NF) samples. This analysis identified 378 differentially expressed lncRNAs, comprising 234 downregulated and 144 upregulated transcripts, which is fewer than the 531 reported in the original study ([lncRNA Differential Expression Analysis](#lncrna-differential-expression-analysis), [volcano Code](#volcano)).
+### Strengths
 
-The discrepancy likely reflects undocumented differences in pre-processing, gene filtering, or software versions that influenced gene inclusion prior to differential analysis. The original study did not provide sufficient methodological detail to enable exact reproduction of these steps.
+- Differential expression analysis was conducted using EdgeR, applying the criteria of P < 0.05 and absolute fold change ≥ 1.5, consistent with the original study ([lncRNA Differential Expression Analysis](#lncrna-differential-expression-analysis), [volcano Code](#volcano)).
+- The analysis identified 378 differentially expressed lncRNAs, capturing significant transcriptional differences between fibrosis (F) and non-fibrosis (NF) samples.
+- The reproduced volcano plot clearly reflected group separation, supporting the original findings and confirming that the noncoding transcriptome discriminates patient groups (Figure 4).
 
-Nonetheless, the reproduced volcano plot clearly reflected group separation, consistent with the original findings and supporting the conclusion that the noncoding transcriptome discriminates patient groups (Figure 4). However, the omission of key filtering and processing information remains a limitation for reproducibility.
+### Weaknesses
+
+- The number of differentially expressed lncRNAs (378) was fewer than the 531 reported in the original study.
+- This discrepancy likely results from undocumented differences in pre-processing, gene filtering, or software versions affecting gene inclusion before differential analysis.
+- Insufficient methodological detail in the original paper limits exact reproducibility and represents a reproducibility limitation.
 
 
 ## Pathway Enrichment Analysis
@@ -677,10 +691,15 @@ Paper Volcano Plots
 Figure 5. Pathway-specific volcano plots showing differential expression of protein-coding genes related to (A) TGFB signalling, (B) Extracellular matrix organization, and (C) Collagen formation/biosynthesis between fibrosis (F) and non-fibrosis (NF) breast cancer patient samples treated with radiation therapy. (Left) Volcano plots generated in this study based on independent analysis of the data. (Right) Corresponding volcano plots from (Vinasco-Sandoval et al. 2025, Figure 1(C-E)), illustrating pathway enrichment linked to fibrosis susceptibility.
 :::
 
-Differential expression analysis of protein-coding genes was performed using EdgeR, applying the same criteria as the original study (P < 0.05, |fold change| ≥ 1.5). This yielded 2,162 differentially expressed mRNAs, consistent with the reported total.
+### Strengths
 
-Functional enrichment analysis using ReactomePA identified significantly enriched pathways, including TGFB signalling, extracellular matrix organisation, and collagen synthesis (FDR < 0.05). To reproduce the pathway-specific volcano plots (Figure 5A–C, left), genes were filtered to include only those within each Reactome pathway and meeting the differential expression thresholds ([Pathway Enrichment Preparation](#pathway-enrichment-preparation), [Pathway Volcano Code](#pathway-specific-volcano)).
+- Differential expression analysis of protein-coding genes was performed using EdgeR with the same criteria as the original study (P < 0.05, |fold change| ≥ 1.5), yielding 2,162 differentially expressed mRNAs consistent with the reported total.
+- Functional enrichment analysis using ReactomePA identified significantly enriched pathways, including TGFB signalling, extracellular matrix organisation, and collagen synthesis (FDR < 0.05).
+- Pathway-specific volcano plots were successfully generated by filtering genes within each Reactome pathway that met the differential expression thresholds ([Pathway Enrichment Preparation](#pathway-enrichment-preparation), [Pathway Volcano Code](#pathway-specific-volcano)).
+- The reproduced plots captured key pathway-level expression differences between fibrosis and non-fibrosis samples, supporting the original study’s conclusions (Figure 5, left; Vinasco-Sandoval et al. 2025, Figure 1C–E).
 
-While the plots were successfully generated using this approach, exact reproduction was limited by insufficient detail on the pathway filtering and gene-to-pathway mapping procedures in the original methods. Specifically, the paper did not describe the Reactome version used or the precise logic for subsetting DE genes for these plots.
+### Weaknesses
 
-Despite these gaps, the reproduced plots (Figure 5, left) captured key pathway-level expression differences between fibrosis and non-fibrosis samples, supporting the original study’s conclusions as visualised in their corresponding plots (Vinasco-Sandoval et al. 2025, Figure 1C–E; Figure 5, right).
+- Exact reproduction was limited by insufficient detail on pathway filtering and gene-to-pathway mapping procedures in the original methods.
+- The paper did not specify the Reactome database version used or the precise logic for subsetting differentially expressed genes for these plots.
+- These methodological gaps represent a reproducibility limitation despite the overall success in reproducing key pathway-level patterns.
