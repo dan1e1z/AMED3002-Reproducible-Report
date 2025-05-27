@@ -1,6 +1,6 @@
 ---
-title: "Assignment-2: Differential Expression Analysis of lncRNAs"
-author: "Daniel Lindsay-Shad"
+title: "Reproducibility of lncRNA VIM-AS1 as a Biomarker for TGF-β1-Driven Fibrotic Susceptibility Following Radiation Therapy"
+author: "Daniel, Muhammad, ZiYi, LingQi, Ruonan"
 date: "`r Sys.Date()`"
 output:
   html_document:
@@ -9,12 +9,62 @@ output:
     toc: true
     toc_depth: 3
     toc_float: true
+    fig_caption: true
 ---
+<!-- number_sections: true -->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
+# Abstract
+This report evaluates the reproducibility of results presented in (Vinasco-Sandoval et al., 2025), which investigates the role of long noncoding RNAs (lncRNAs) in breast fibrosis susceptibility following radiation therapy. The original study employed exome sequencing and RNA-seq transcriptomic profiling of primary dermal fibroblasts, identifying a 15-lncRNA signature associated with fibrosis risk, with VIM-AS1 highlighted as a key biomarker.
 
+Our replication confirmed the upregulation of VIM-AS1, aligning with the original findings; however, discrepancies were observed concerning lncRNA 513. Furthermore, we identified only 378 differentially expressed lncRNAs, notably fewer than the 531 reported in the study. Reproduction of the heatmap required application of z-scaling and clustering procedures that were not described in the original methods, indicating that key analytical steps were omitted, thereby limiting the reproducibility of the results. This report outlines the methodology, computational workflow, and challenges encountered during reproduction.
+
+
+# Introduction
+
+Breast fibrosis is a long-term complication that can occur following radiation therapy, marked by excessive extracellular matrix deposition and tissue stiffening (Wynn, 2008). Its development varies significantly among patients, suggesting an underlying genetic or molecular predisposition. Long noncoding RNAs (lncRNAs), which regulate gene expression without coding for proteins, have emerged as potential mediators of fibrotic processes.
+
+The original study aimed to investigate whether specific lncRNAs, particularly VIM-AS1, contribute to the risk and development of breast fibrosis after radiation therapy. By comparing gene expression profiles in skin fibroblasts from breast cancer patients with and without severe fibrosis, the authors sought to identify lncRNAs associated with fibrotic susceptibility.
+
+Given the growing demand for transparency and reproducibility in omics research, our objective was to independently assess the robustness of these findings by reproducing the published bioinformatics workflow.
+
+# Summary of the Paper
+## Aim
+This study aims to investigate how long noncoding RNAs (lncRNAs) may influence the risk and development of breast fibrosis after radiation therapy. It used gene activity profiles from skin cells of breast cancer patients with and without severe fibrosis.
+
+## Methods
+Breast cancer patients who had or had not developed severe breast fibrosis after radiation therapy were retrospectively selected from the COPERNIC collection. Exome sequencing and RNA-seq were performed on 19 primary dermal fibroblast strains isolated from the patients’ non-irradiated skin. Functional experiments were conducted using healthy donor fibroblasts and involved fibrosis induction with transforming growth factor-beta1 (TGFB1) and targeted gene knockdown.
+
+## Results
+The analysis of coding and noncoding transcriptomes successfully distinguished between patients with and without breast fibrosis. A set of 15 long noncoding RNAs (lncRNAs) was identified as a signature associated with susceptibility to fibrosis. Among these, vimentin antisense long noncoding RNA 1 (VIM-AS1) emerged as the strongest biomarker, showing the highest association with fibrosis risk based on hazard ratio analysis. Although VIM-AS1 had not been previously linked to fibrotic conditions, it was found to be upregulated in external datasets related to cardiac fibrosis.
+
+
+
+# Experimental Design and Workflow
+1. [Load Libraries](#load-libraries)  
+2. [Load and Prepare Data](#load-and-prepare-data)  
+3. [Pathway Enrichment Preparation](#pathway-enrichment-preparation)  
+4. [Utility Functions](#utility-functions)  
+5. [Volcano Plot Functions](#volcano-functions)  
+6. [lncRNA Differential Expression Analysis](#lncRNA-differential-expression-analysis)  
+7. [Differential Expression Analysis](#differential-expression-analysis)  
+8. [Pathway Enrichment Analysis](#pathway-enrichment-analysis)
+
+
+
+
+```{r fig1, out.height="400px",  echo=FALSE}
+knitr::include_graphics("Figure-Images/Figure1-Workflow.jpg")
+```
+
+::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
+Figure 1. Workflow of the experimental strategy used to investigate differentially expressed genes between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient cells, all treated by radiation therapy (Vinasco-Sandoval et al. 2025, Figure 1A).
+:::
+
+
+## Load Libraries
 ```{r load-libraries}
 # ═══════════════════════════════════════════════════════════════════════════════
 # PACKAGE LOADING
@@ -46,8 +96,12 @@ library(ComplexHeatmap)
 library(SummarizedExperiment)
 library(gplots)
 library(pheatmap)
+
+# Visuals
+library(patchwork)
 ```
 
+## Load And Prepare Data
 ```{r load-and-prepare-data}
 # ═══════════════════════════════════════════════════════════════════════════════
 # DATA IMPORT AND PREPROCESSING
@@ -108,7 +162,7 @@ protein_coding_data <- combined_raw_patient_data %>%
   filter(Biotype == "protein-coding")
 ```
 
-
+## Pathway Enrichment Preparation
 ```{r pathway-enrichment-preparation}
 # ═══════════════════════════════════════════════════════════════════════════════
 # PATHWAY ANALYSIS PREPARATION
@@ -129,6 +183,7 @@ pathway_enrichment <- enrichPathway(
 )
 ```
 
+## Untility Functions
 ```{r functions}
 # ═══════════════════════════════════════════════════════════════════════════════
 # UTILITY FUNCTIONS
@@ -195,7 +250,7 @@ get_pathway_specific_gene_dataset <- function(search, data) {
   return(subset_data)
 }
 ```
-
+## Volcano Functions
 ```{r volcano-functions}
 # ═══════════════════════════════════════════════════════════════════════════════
 # VISUALIZATION FUNCTIONS
@@ -267,6 +322,7 @@ create_pathway_specific_volcano <- function(search, data) {
 }
 ```
 
+## LncRNA Differential Expression Analysis
 ```{r lncRNA-differential-expression-analysis}
 # ═══════════════════════════════════════════════════════════════════════════════
 # LNCRNA ANALYSIS PIPELINE  
@@ -320,7 +376,11 @@ significant_gene_ids <- rownames(significant_results)
 lncRNA_filtered_dge <- lncRNA_dge[rownames(lncRNA_dge) %in% significant_gene_ids, ]
 ```
 
+# Results
+## Differential Expression Analysis
+### PCA
 ```{r pca}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PCA VISUALIZATION
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -342,6 +402,14 @@ autoplot(pca, data = sample_info, colour = "Group") +
   theme_minimal()
 ```
 
+::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
+Figure 2. Principal component analysis (PCA) of log-transformed counts per million (log-CPM) for significant long noncoding RNAs (lncRNAs), showing sample clustering between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient cells based on papers data (Vinasco-Sandoval et al. 2025). This analysis was independently performed in this study.
+:::
+
+### Heatmap
+:::::: {style="display: flex; gap: 20px;"}
+::: {style="flex: 1; text-align: center; font-weight: bold;"}
+Our Heatmap Plot
 ```{r heatmap}
 # ═══════════════════════════════════════════════════════════════════════════════
 # HEATMAP GENERATION
@@ -425,7 +493,21 @@ Heatmap(
   row_title = NULL
 )
 ```
+:::
+::: {style="flex: 1; text-align: center; font-weight: bold;"}
+Paper Heatmap Plot
+![](Figure-Images/Figure2-Heatmap.jpg)
+:::
+::::::
 
+::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
+Figure 3. Heatmap comparison showing the differential expression of 531 long noncoding RNAs (lncRNAs) between 10 fibrosis (F, black) and 9 non-fibrosis (NF, green) breast cancer patient samples treated with radiation therapy. (Left) Heatmap generated in this study based on log2-transformed counts per million (CPM). (Right) Heatmap from (Vinasco-Sandoval et al. 2025, Figure 1A), illustrating the noncoding transcriptome’s ability to discriminate fibrosis from nonfibrosis patients (Vinasco-Sandoval et al., 2025).
+:::
+
+### Volcano
+:::::: {style="display: flex; gap: 20px;"}
+::: {style="flex: 1; text-align: center; font-weight: bold;"}
+Our Volcano Plot 
 ```{r volcano}
 # ═══════════════════════════════════════════════════════════════════════════════
 # VOLCANO PLOT VISUALIZATION
@@ -480,23 +562,51 @@ ggplot(volcano_data, aes(x = logFC, y = -log10(PValue))) +
   annotate("text", x = -4.2, y = 6.4, label = paste(down_count, "lncRNAs"),
            colour = "blue", size = 4, hjust = 0)
 ```
+:::
+::: {style="flex: 1; text-align: center; font-weight: bold;"}
+Paper Volcano Plot
+![](Figure-Images/Figure2-Volcano.jpg)
+:::
+::::::
+
+::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
+Figure 4. Volcano plot comparison showing the differential expression of long noncoding RNAs (lncRNAs) between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient samples treated with radiation therapy. (Left) Volcano plot generated in this study displaying significant upregulated (red) and downregulated (blue) lncRNAs with top 15 genes labelled, based on independent analysis of data from Vinasco-Sandoval et al. (2025). (Right) Volcano plot from (Vinasco-Sandoval et al. 2025, Figure 2A), illustrating the noncoding transcriptome’s ability to discriminate fibrosis from nonfibrosis patients.
+:::
 
 
-```{r pathway-specific-volcano}
-# ═══════════════════════════════════════════════════════════════════════════════
-# PATHWAY-SPECIFIC ANALYSIS
-# ═══════════════════════════════════════════════════════════════════════════════
+## Pathway Enrichment Analysis
+:::::: {style="display: flex; gap: 20px;"}
+::: {style="flex: 1; text-align: center; font-weight: bold;"}
+Our Volcano Plots
+```{r pathway-specific-volcano, fig.width=10, fig.height=18, out.width='100%'}
+plot_A <- create_pathway_specific_volcano("TGFB", protein_coding_data) +
+  ggtitle("A") +
+  theme(plot.title = element_text(hjust = 0, size = 16, face = "bold", margin = margin(b = 20)))
+plot_B <- create_pathway_specific_volcano("Extracellular matrix organization", protein_coding_data) +
+  ggtitle("B") +
+  theme(plot.title = element_text(hjust = 0, size = 16, face = "bold", margin = margin(b = 20)))
+plot_C <- create_pathway_specific_volcano("Collagen formation|Collagen biosynthesis", protein_coding_data) +
+  ggtitle("C") +
+  theme(plot.title = element_text(hjust = 0, size = 16, face = "bold", margin = margin(b = 20)))
 
-# TGF-β signaling pathway
-create_pathway_specific_volcano("TGFB", protein_coding_data)
+# plot_A
+# plot_B
+# plot_C
 
-# ───────────────────────────────────────────────────────────────────────────────
+combined_plot <- plot_A / plot_B / plot_C + 
+  plot_layout(ncol = 1, heights = c(1, 1, 1)) & 
+  theme(plot.margin = margin(10, 10, 10, 10))
 
-# Extracellular matrix organization
-create_pathway_specific_volcano("Extracellular matrix organization", protein_coding_data)
+combined_plot
 
-# ───────────────────────────────────────────────────────────────────────────────
-
-# Collagen formation and biosynthesis
-create_pathway_specific_volcano("Collagen formation|Collagen biosynthesis", protein_coding_data)
 ```
+:::
+::: {style="flex: 1; text-align: center; font-weight: bold;"}
+Paper Volcano Plots
+![](Figure-Images/Figure1-Volcano.jpg)
+:::
+::::::
+
+::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
+Figure 5. Pathway-specific volcano plots showing differential expression of protein-coding genes related to (A) TGFB signalling, (B) Extracellular matrix organization, and (C) Collagen formation/biosynthesis between fibrosis (F) and non-fibrosis (NF) breast cancer patient samples treated with radiation therapy. (Left) Volcano plots generated in this study based on independent analysis of the data. (Right) Corresponding volcano plots from (Vinasco-Sandoval et al. 2025, Figure 1(C-E)), illustrating pathway enrichment linked to fibrosis susceptibility.
+:::
