@@ -1,6 +1,5 @@
 ---
 title: "Reproducibility of lncRNA VIM-AS1 as a Biomarker for TGF-β1-Driven Fibrotic Susceptibility Following Radiation Therapy"
-author: "Daniel, Muhammad, ZiYi, LingQi, Ruonan"
 date: "`r Sys.Date()`"
 output:
   html_document:
@@ -241,7 +240,7 @@ pathway_enrichment <- enrichPathway(
 ```
 
 ### Untility Functions
-```{r functions}
+```{r utility-functions}
 # ═══════════════════════════════════════════════════════════════════════════════
 # UTILITY FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -344,13 +343,12 @@ plot_pretty_volcano <- function(results,
 
   # Create volcano plot
   ggplot(results, aes(x = logFC, y = -log10(PValue))) +
-    geom_point(aes(colour = Significance, shape = Significance), 
+    geom_point(aes(colour = Significance), 
                alpha = 0.7, size = 2) +
     geom_text_repel(aes(label = label), 
                     size = 3, max.overlaps = Inf, 
                     segment.curvature = 0, segment.color = NA) +
     scale_colour_manual(values = c("Up" = "red", "Down" = "blue", "NS" = "grey")) +
-    scale_shape_manual(values = c("Up" = 16, "Down" = 17, "NS" = 1)) +
     geom_vline(xintercept = c(-log2(fc_threshold), log2(fc_threshold)), 
                linetype = "dashed", colour = "black") +
     geom_hline(yintercept = -log10(pval_threshold), 
@@ -703,3 +701,29 @@ Figure 5. Pathway-specific volcano plots showing differential expression of prot
 - Exact reproduction was limited by insufficient detail on pathway filtering and gene-to-pathway mapping procedures in the original methods.
 - The paper did not specify the Reactome database version used or the precise logic for subsetting differentially expressed genes for these plots.
 - These methodological gaps represent a reproducibility limitation despite the overall success in reproducing key pathway-level patterns.
+
+# Conclusion and Future Directions
+
+This reproduction study confirms the central findings of the original analysis—most notably the differential expression of **VIM-AS1**, a lncRNA associated with radiation-induced fibrosis. Through independent processing, we successfully validated core visual and statistical outputs, including the heatmap, volcano plots, and pathway-specific analyses. These results underscore the biological relevance of both coding and noncoding transcriptomic differences between fibrosis and non-fibrosis samples.
+
+However, key reproducibility issues were encountered:
+
+- Only **378 differentially expressed lncRNAs** were identified, compared to **531 reported**. This discrepancy likely reflects undocumented preprocessing steps.
+- **Z-score scaling and clustering** were required to reproduce the heatmap, yet these steps were not described in the original methods, suggesting critical omissions.
+- The **absence of code**, **unclear gene filtering**, **undefined visualisation parameters**, and **incomplete Reactome pathway reporting** all limit transparency and hinder replication.
+
+Despite these gaps, the study’s major conclusion—**VIM-AS1 upregulation in fibrosis**—was independently confirmed, reinforcing its potential as a fibrosis biomarker and validating the utility of public RNA-seq data.
+
+## Recommendations for Future Studies
+
+- Release full analysis code and workflows, including filtering, transformation, and clustering steps.
+- Clearly report all figure parameters, such as scaling methods, clustering settings, and distance/linkage metrics.
+- Specify pathway enrichment tool versions and gene-to-pathway mapping strategies.
+- Embed reproducibility checks into RNA-seq pipelines, making validation easier across studies.
+
+Improved methodological transparency will enable more consistent cross-study validation and accelerate progress in uncovering regulatory roles of the noncoding transcriptome in fibrosis.
+
+# References
+
+1. Deleuze, J.-F., Foray, N., Fortunel, N. O., & Martin, M. T. (2025). Long Noncoding VIM-AS1: Biomarker of Breast Fibrosis Susceptibility After Radiation Therapy and Promoter of Transforming Growth Factor Beta1-Driven Fibrosis. International Journal of Radiation Oncology*Biology*Physics, 121(3), 783-797. https://doi.org/https://doi.org/10.1016/j.ijrobp.2024.09.049 
+2. Wynn, T. A. (2008). Cellular and molecular mechanisms of fibrosis. J Pathol, 214(2), 199-210. https://doi.org/10.1002/path.2277 
