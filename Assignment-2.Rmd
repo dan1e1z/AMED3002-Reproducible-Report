@@ -52,14 +52,24 @@ The analysis of coding and noncoding transcriptomes successfully distinguished b
 
 
 
-
-```{r fig1, out.height="400px",  echo=FALSE}
+:::::: {style="display: flex; gap: 20px;"}
+::: {style="flex: 1; text-align: center; font-weight: bold;"}
+Our Workflow
+```{r fig1, echo=FALSE}
+knitr::include_graphics("Figure-Images/our-workflow.png")
+```
+:::
+::: {style="flex: 1; text-align: center; font-weight: bold;"}
+Papers Workflow
+```{r fig2, out.height="400px",  echo=FALSE}
 knitr::include_graphics("Figure-Images/Figure1-Workflow.jpg")
 ```
-
-::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
-Figure 1. Workflow of the experimental strategy used to investigate differentially expressed genes between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient cells, all treated by radiation therapy (Vinasco-Sandoval et al. 2025, Figure 1A).
 :::
+::::::
+::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
+**Figure 1.** Left: Our workflow for investigating differentially expressed genes between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient-derived cells following radiation therapy. Right: Reference workflow from Vinasco-Sandoval et al. (2025, Figure 1A).
+:::
+
 
 # Evaluation of Methods and Analysis
 
@@ -457,7 +467,7 @@ autoplot(pca, data = sample_info, colour = "Group") +
 ```
 
 ::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
-Figure 2. Principal component analysis (PCA) of log-transformed counts per million (log-CPM) for significant long noncoding RNAs (lncRNAs), showing sample clustering between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient cells based on papers data (Vinasco-Sandoval et al. 2025). This analysis was independently performed in this study.
+**Figure 2.** Principal component analysis (PCA) of log-transformed counts per million (log-CPM) for significant long noncoding RNAs (lncRNAs), showing sample clustering between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient cells based on papers data (Vinasco-Sandoval et al. 2025). This analysis was independently performed in this study.
 :::
 
 Principal component analysis of log-CPM values for significant lncRNAs showed that PC1 explained 52.81% of the variance and PC2 explained 7.53%, with clear separation between fibrosis (F) and non-fibrosis (NF) samples, indicating that these components effectively distinguish the two groups based on lncRNA expression profiles (Figure 2).
@@ -557,7 +567,7 @@ Paper Heatmap Plot
 ::::::
 
 ::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
-Figure 3. Heatmap comparison showing the differential expression of 531 long noncoding RNAs (lncRNAs) between 10 fibrosis (F, black) and 9 non-fibrosis (NF, green) breast cancer patient samples treated with radiation therapy. (Left) Heatmap generated in this study based on log2-transformed counts per million (CPM). (Right) Heatmap from (Vinasco-Sandoval et al. 2025, Figure 1A), illustrating the noncoding transcriptome’s ability to discriminate fibrosis from nonfibrosis patients (Vinasco-Sandoval et al., 2025).
+**Figure 3.** Heatmap comparison showing the differential expression of 531 long noncoding RNAs (lncRNAs) between 10 fibrosis (F, black) and 9 non-fibrosis (NF, green) breast cancer patient samples treated with radiation therapy. (Left) Heatmap generated in this study based on log2-transformed counts per million (CPM). (Right) Heatmap from (Vinasco-Sandoval et al. 2025, Figure 1A), illustrating the noncoding transcriptome’s ability to discriminate fibrosis from nonfibrosis patients (Vinasco-Sandoval et al., 2025).
 :::
 
 ### Strengths
@@ -640,7 +650,7 @@ Paper Volcano Plot
 ::::::
 
 ::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
-Figure 4. Volcano plot comparison showing the differential expression of long noncoding RNAs (lncRNAs) between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient samples treated with radiation therapy. (Left) Volcano plot generated in this study displaying significant upregulated (red) and downregulated (blue) lncRNAs with top 15 genes labelled, based on independent analysis of data from Vinasco-Sandoval et al. (2025). (Right) Volcano plot from (Vinasco-Sandoval et al. 2025, Figure 2A), illustrating the noncoding transcriptome’s ability to discriminate fibrosis from nonfibrosis patients.
+**Figure 4.** Volcano plot comparison showing the differential expression of long noncoding RNAs (lncRNAs) between 10 fibrosis (F) and 9 non-fibrosis (NF) breast cancer patient samples treated with radiation therapy. (Left) Volcano plot generated in this study displaying significant upregulated (red) and downregulated (blue) lncRNAs with top 15 genes labelled, based on independent analysis of data from Vinasco-Sandoval et al. (2025). (Right) Volcano plot from (Vinasco-Sandoval et al. 2025, Figure 2A), illustrating the noncoding transcriptome’s ability to discriminate fibrosis from nonfibrosis patients.
 :::
 
 ### Strengths
@@ -660,7 +670,7 @@ Figure 4. Volcano plot comparison showing the differential expression of long no
 :::::: {style="display: flex; gap: 20px;"}
 ::: {style="flex: 1; text-align: center; font-weight: bold;"}
 Our Volcano Plots
-```{r pathway-specific-volcano, fig.width=10, fig.height=18, out.width='100%'}
+```{r pathway-specific-volcano, fig.width=10, fig.height=18}
 plot_A <- create_pathway_specific_volcano("TGFB", protein_coding_data) +
   ggtitle("A") +
   theme(plot.title = element_text(hjust = 0, size = 16, face = "bold", margin = margin(b = 20)))
@@ -686,12 +696,12 @@ Paper Volcano Plots
 ::::::
 
 ::: {style="font-size: 0.9em; font-style: italic; color: #555; margin-top: 0.5em; text-align: center;"}
-Figure 5. Pathway-specific volcano plots showing differential expression of protein-coding genes related to (A) TGFB signalling, (B) Extracellular matrix organization, and (C) Collagen formation/biosynthesis between fibrosis (F) and non-fibrosis (NF) breast cancer patient samples treated with radiation therapy. (Left) Volcano plots generated in this study based on independent analysis of the data. (Right) Corresponding volcano plots from (Vinasco-Sandoval et al. 2025, Figure 1(C-E)), illustrating pathway enrichment linked to fibrosis susceptibility.
+**Figure 5.** Pathway-specific volcano plots showing differential expression of protein-coding genes related to (A) TGFB signalling, (B) Extracellular matrix organization, and (C) Collagen formation/biosynthesis between fibrosis (F) and non-fibrosis (NF) breast cancer patient samples treated with radiation therapy. (Left) Volcano plots generated in this study based on independent analysis of the data. (Right) Corresponding volcano plots from (Vinasco-Sandoval et al. 2025, Figure 1(C-E)), illustrating pathway enrichment linked to fibrosis susceptibility.
 :::
 
 ### Strengths
 
-- Differential expression analysis of protein-coding genes was performed using EdgeR with the same criteria as the original study (P < 0.05, |fold change| ≥ 1.5), yielding 2,162 differentially expressed mRNAs consistent with the reported total.
+- Differential expression analysis of protein-coding genes was performed using EdgeR with the same criteria as the original study (P < 0.05, |fold change| ≥ 1.5), yielding 1,854 differentially expressed mRNAs, which is slightly lower than the 2,162 reported, possibly due to differences in filtering or annotation.
 - Functional enrichment analysis using ReactomePA identified significantly enriched pathways, including TGFB signalling, extracellular matrix organisation, and collagen synthesis (FDR < 0.05).
 - Pathway-specific volcano plots were successfully generated by filtering genes within each Reactome pathway that met the differential expression thresholds ([Pathway Enrichment Preparation](#pathway-enrichment-preparation), [Pathway Volcano Code](#pathway-specific-volcano)).
 - The reproduced plots captured key pathway-level expression differences between fibrosis and non-fibrosis samples, supporting the original study’s conclusions (Figure 5, left; Vinasco-Sandoval et al. 2025, Figure 1C–E).
